@@ -45,8 +45,7 @@
         <source url="https://cdn.cocoapods.org/" />
       </config>
       <pods use-frameworks="true">
-        <pod name="GoogleMLKit/BarcodeScanning"
-          spec="~> 3.2.0" />
+        <pod name="GoogleMLKit/BarcodeScanning" spec="~> 3.2.0" />
       </pods>
     </podspec>
     <header-file src="src/ios/CDViOSScanner.h" />
@@ -91,10 +90,6 @@
       target-dir="src/com/mobisys/cordova/plugins/mlkit/barcode/scanner" />
     <source-file src="src/android/src/MLKitBarcodeScanner.java"
       target-dir="src/com/mobisys/cordova/plugins/mlkit/barcode/scanner" />
-    <source-file src="src/android/src/utils/BitmapUtils.java"
-      target-dir="src/com/mobisys/cordova/plugins/mlkit/barcode/scanner/utils" />
-    <source-file src="src/android/src/utils/FrameMetadata.java"
-      target-dir="src/com/mobisys/cordova/plugins/mlkit/barcode/scanner/utils" />
 
     <resource-file src="src/android/res/assets/beep.ogg"
       target="assets/beep.ogg" />
@@ -114,8 +109,8 @@
     <framework src="com.android.support:support-v4:27.1.0" />
     <framework src="com.android.support:design:27.1.0" />
 
-    <framework src="com.google.android.gms:play-services-mlkit-barcode-scanning:18.1.0" />
-    <framework src="com.google.mlkit:barcode-scanning:17.0.3" />
+    <framework src="com.google.android.gms:play-services-mlkit-barcode-scanning:18.2.0" />
+    <framework src="com.google.mlkit:barcode-scanning:17.1.0" />
 
     <framework src="androidx.camera:camera-core:1.1.0" />
     <framework src="androidx.camera:camera-camera2:1.1.0" />

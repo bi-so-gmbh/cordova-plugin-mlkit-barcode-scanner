@@ -25,6 +25,7 @@ export const defaultOptions: Required<IOptions> = Object.freeze({
   focusRectColor: "#FFFFFF",
   focusRectBorderRadius: 100,
   focusRectBorderThickness: 5,
+  scanAreaAdjustment: 0,
   drawFocusLine: false,
   focusLineColor: "#ff2d37",
   focusLineThickness: 2,

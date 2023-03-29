@@ -9,14 +9,15 @@ import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
 import android.hardware.camera2.CameraManager;
 import android.media.MediaPlayer;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.os.VibratorManager;
 import android.util.Log;
 
 import com.google.android.gms.common.api.CommonStatusCodes;
 
+import java.util.ArrayList;
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaInterface;
 import org.apache.cordova.CordovaPlugin;
@@ -28,43 +29,42 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 
-/**
- * This class echoes a string called from JavaScript.
- */
 public class MLKitBarcodeScanner extends CordovaPlugin {
 
   private static final int RC_BARCODE_CAPTURE = 9001;
-  private CallbackContext _CallbackContext;
-  private Boolean _BeepOnSuccess;
-  private Boolean _VibrateOnSuccess;
-  private MediaPlayer _MediaPlayer;
-  private Vibrator _Vibrator;
+  private CallbackContext callbackContext;
+  private boolean beepOnSuccess;
+  private boolean vibrateOnSuccess;
+  private MediaPlayer mediaPlayer;
+  private Vibrator vibrator;
 
+  @Override
   public void initialize(CordovaInterface cordova, CordovaWebView webView) {
     super.initialize(cordova, webView);
 
     Context context = cordova.getContext();
 
-    _Vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
-    _MediaPlayer = new MediaPlayer();
+    VibratorManager vibratorManager = (VibratorManager) context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
+    vibrator = vibratorManager.getDefaultVibrator();
+    mediaPlayer = new MediaPlayer();
 
     try {
       AssetFileDescriptor descriptor = context.getAssets().openFd("beep.ogg");
-      _MediaPlayer.setDataSource(descriptor.getFileDescriptor(), descriptor.getStartOffset(), descriptor.getLength());
+      mediaPlayer.setDataSource(descriptor.getFileDescriptor(), descriptor.getStartOffset(), descriptor.getLength());
       descriptor.close();
-      _MediaPlayer.prepare();
+      mediaPlayer.prepare();
     } catch (IOException e) {
       e.printStackTrace();
     }
   }
 
   @Override
-  public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
+  public boolean execute(String action, JSONArray args, CallbackContext callbackContext) {
     Activity activity = cordova.getActivity();
-    Boolean hasCamera = activity.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY);
+    boolean hasCamera = activity.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY);
     CameraManager cameraManager = (CameraManager) activity.getSystemService(Context.CAMERA_SERVICE);
 
-    _CallbackContext = callbackContext;
+    this.callbackContext = callbackContext;
 
     int numberOfCameras = 0;
 
@@ -79,13 +79,9 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
       alertDialog.setMessage(activity.getString(activity.getResources()
           .getIdentifier("no_cameras_found", "string", activity.getPackageName())));
       alertDialog.setButton(
-          AlertDialog.BUTTON_POSITIVE, activity.getString(activity.getResources()
+          DialogInterface.BUTTON_POSITIVE, activity.getString(activity.getResources()
               .getIdentifier("ok", "string", activity.getPackageName())),
-          new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface dialog, int which) {
-              dialog.dismiss();
-            }
-          });
+          (dialog, which) -> dialog.dismiss());
       alertDialog.show();
       return false;
     }
@@ -104,7 +100,7 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
           try {
             openNewActivity(context, args);
           } catch (JSONException e) {
-            _CallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, e.toString()));
+            MLKitBarcodeScanner.this.callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, e.toString()));
           }
         }
       }
@@ -126,14 +122,15 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
     intent.putExtra("FocusRectColor", config.optString("focusRectColor", "#FFFFFF"));
     intent.putExtra("FocusRectBorderRadius", config.optInt("focusRectBorderRadius", 100));
     intent.putExtra("FocusRectBorderThickness", config.optInt("focusRectBorderThickness", 5));
+    intent.putExtra("ScanAreaAdjustment", config.optInt("scanAreaAdjustment", 0));
     intent.putExtra("DrawFocusLine", config.optBoolean("drawFocusLine", true));
     intent.putExtra("FocusLineColor", config.optString("focusLineColor", "#FFFFFF"));
     intent.putExtra("FocusLineThickness", config.optInt("focusLineThickness", 5));
     intent.putExtra("DrawFocusBackground", config.optBoolean("drawFocusBackground", true));
     intent.putExtra("FocusBackgroundColor", config.optString("focusBackgroundColor", "#CCFFFFFF"));
 
-    _BeepOnSuccess = config.optBoolean("beepOnSuccess", false);
-    _VibrateOnSuccess = config.optBoolean("vibrateOnSuccess", false);
+    beepOnSuccess = config.optBoolean("beepOnSuccess", false);
+    vibrateOnSuccess = config.optBoolean("vibrateOnSuccess", false);
 
     this.cordova.setActivityResultCallback(this);
     this.cordova.startActivityForResult(this, intent, RC_BARCODE_CAPTURE);
@@ -146,30 +143,40 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
     if (requestCode == RC_BARCODE_CAPTURE) {
       if (resultCode == CommonStatusCodes.SUCCESS) {
         if (data != null) {
-          Integer barcodeFormat = data.getIntExtra(CaptureActivity.BarcodeFormat, 0);
-          Integer barcodeType = data.getIntExtra(CaptureActivity.BarcodeType, 0);
-          String barcodeValue = data.getStringExtra(CaptureActivity.BarcodeValue);
-          JSONArray result = new JSONArray();
-          result.put(barcodeValue);
-          result.put(barcodeFormat);
-          result.put(barcodeType);
-          _CallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK, result));
+          ArrayList<Bundle> barcodes = data.getParcelableArrayListExtra("barcodes");
+          JSONArray resultBarcodes = new JSONArray();
+          for (Bundle barcode : barcodes) {
+            Integer barcodeFormat = barcode.getInt(CaptureActivity.BARCODE_FORMAT, 0);
+            Integer barcodeType = barcode.getInt(CaptureActivity.BARCODE_TYPE, 0);
+            String barcodeValue = barcode.getString(CaptureActivity.BARCODE_VALUE);
 
-          if (_BeepOnSuccess) {
-            _MediaPlayer.start();
+            JSONArray result = new JSONArray();
+            result.put(barcodeValue);
+            result.put(barcodeFormat);
+            result.put(barcodeType);
+
+            Log.d("MLKitBarcodeScanner", "Barcode read: " + barcodeValue);
+
+            resultBarcodes.put(result);
+          }
+          JSONArray result;
+          try {
+            result = resultBarcodes.getJSONArray(0);
+          } catch (JSONException e) {
+            throw new RuntimeException(e);
+          }
+          callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK, result));
+
+          if (beepOnSuccess) {
+            mediaPlayer.start();
           }
 
-          if (_VibrateOnSuccess) {
-            Integer duration = 200;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-              _Vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE));
-            } else {
-              // deprecated in API 26 aka Oreo
-              _Vibrator.vibrate(duration);
-            }
+          if (vibrateOnSuccess) {
+            int duration = 200;
+            vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE));
           }
 
-          Log.d("MLKitBarcodeScanner", "Barcode read: " + barcodeValue);
+
         }
       } else {
         String err = data.getStringExtra("err");
@@ -177,13 +184,13 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
         result.put(err);
         result.put("");
         result.put("");
-        _CallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, result));
+        callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, result));
       }
     }
   }
 
   @Override
   public void onRestoreStateForActivityResult(Bundle state, CallbackContext callbackContext) {
-    _CallbackContext = callbackContext;
+    this.callbackContext = callbackContext;
   }
 }
