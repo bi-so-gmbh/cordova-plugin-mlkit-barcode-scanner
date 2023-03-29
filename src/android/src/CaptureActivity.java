@@ -31,9 +31,13 @@ import androidx.camera.core.AspectRatio;
 import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageAnalysis;
+import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
+import androidx.camera.view.transform.CoordinateTransform;
+import androidx.camera.view.transform.ImageProxyTransformFactory;
+import androidx.camera.view.transform.OutputTransform;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LiveData;
@@ -51,6 +55,8 @@ import com.google.mlkit.vision.common.InputImage;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -73,6 +79,7 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
   public static final String BARCODE_FORMAT = "MLKitBarcodeFormat";
   public static final String BARCODE_TYPE = "MLKitBarcodeType";
   public static final String BARCODE_VALUE = "MLKitBarcodeValue";
+  public static final String DISTANCE_TO_CENTER = "distanceToCenter";
   private final ExecutorService executor = Executors.newSingleThreadExecutor();
   private PreviewView mCameraView;
   private SurfaceHolder holder;
@@ -205,9 +212,11 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
         listener);
     Snackbar
         .make(surfaceView,
-            getResources().getIdentifier("bcode_permission_camera_rationale", STRING, getPackageName()),
+            getResources().getIdentifier("bcode_permission_camera_rationale", STRING,
+                getPackageName()),
             BaseTransientBottomBar.LENGTH_INDEFINITE)
-        .setAction(getResources().getIdentifier("bcode_ok", STRING, getPackageName()), listener).show();
+        .setAction(getResources().getIdentifier("bcode_ok", STRING, getPackageName()), listener)
+        .show();
 
   }
 
@@ -229,8 +238,10 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
 
     AlertDialog.Builder builder = new AlertDialog.Builder(this);
     builder.setTitle("Camera permission required")
-        .setMessage(getResources().getIdentifier("bcode_no_camera_permission", STRING, getPackageName()))
-        .setPositiveButton(getResources().getIdentifier("bcode_ok", STRING, getPackageName()), listener)
+        .setMessage(
+            getResources().getIdentifier("bcode_no_camera_permission", STRING, getPackageName()))
+        .setPositiveButton(getResources().getIdentifier("bcode_ok", STRING, getPackageName()),
+            listener)
         .show();
   }
 
@@ -338,12 +349,17 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
           .addOnSuccessListener(barCodes -> {
             if (!barCodes.isEmpty()) {
               ArrayList<Bundle> barcodes = new ArrayList<>();
-              ArrayList<Bundle> outOfBounds = new ArrayList<>();
-              Rect scanArea = resizeRect(calculateRect(), 0, scanAreaAdjustment);
-              Log.d("scanArea", "scanArea: " + scanArea.flattenToString());
+              RectF scanArea;
+              if (inputImage.getRotationDegrees() % 90 == 0) {
+                scanArea = calculateRectF(inputImage.getWidth(), inputImage.getHeight());
+              } else {
+                scanArea = calculateRectF(inputImage.getHeight(), inputImage.getWidth());
+              }
+              scanArea = resizeRectF(scanArea, 0, scanAreaAdjustment);
+
               for (Barcode barcode : barCodes) {
-                Rect barcodeBounds = barcode.getBoundingBox();
-                if (barcodeBounds != null) {
+                RectF barcodeBounds = new RectF(barcode.getBoundingBox());
+                if (scanArea.contains(barcodeBounds.centerX(), barcodeBounds.centerY())) {
                   Bundle bundle = new Bundle();
                   String value = barcode.getRawValue();
 
@@ -351,35 +367,28 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
                   // If that's the case, we will decode it as ASCII,
                   // because it's the most common encoding for barcodes.
                   // e.g. https://www.barcodefaq.com/1d/code-128/
-                  if (barcode.getRawValue() == null) {
+                  if (value == null) {
                     value = new String(barcode.getRawBytes(), StandardCharsets.US_ASCII);
                   }
 
                   bundle.putInt(BARCODE_FORMAT, barcode.getFormat());
                   bundle.putInt(BARCODE_TYPE, barcode.getValueType());
                   bundle.putString(BARCODE_VALUE, value);
-                  double distanceToCenter = Math.hypot(scanArea.exactCenterX() - barcodeBounds.exactCenterX(),
-                          scanArea.exactCenterY() - barcodeBounds.exactCenterY());
-                  bundle.putDouble("distanceToCenter", distanceToCenter);
-                  if (scanArea.contains(barcodeBounds.centerX(), barcodeBounds.centerY())) {
-                    barcodes.add(bundle);
-                  } else {
-                    outOfBounds.add(bundle);
-                  }
+                  double distanceToCenter = Math.hypot(scanArea.centerX() - barcodeBounds.centerX(),
+                      scanArea.centerY() - barcodeBounds.centerY());
+                  bundle.putDouble(DISTANCE_TO_CENTER, distanceToCenter);
+
+                  barcodes.add(bundle);
                 }
+              }
 
-                Log.d("scanArea", "inside: " + Arrays.toString(
-                    barcodes.stream().map(b -> b.get("distanceToCenter")).toArray()));
-                Log.d("scanArea", "outside: " + Arrays.toString(
-                    outOfBounds.stream().map(b -> b.get("distanceToCenter")).toArray()));
+              if (!barcodes.isEmpty()) {
+                Intent data = new Intent();
+                barcodes.sort(Comparator.comparingDouble(b -> b.getDouble(DISTANCE_TO_CENTER)));
+                data.putParcelableArrayListExtra("barcodes", barcodes);
+                setResult(CommonStatusCodes.SUCCESS, data);
 
-                if (!barcodes.isEmpty()) {
-                  Intent data = new Intent();
-                  data.putParcelableArrayListExtra("barcodes", barcodes);
-                  setResult(CommonStatusCodes.SUCCESS, data);
-
-                  finish();
-                }
+                finish();
               }
             }
           }).addOnFailureListener(e -> {
@@ -420,13 +429,11 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
     paint.setColor(Color.parseColor(focusRectColor));
     paint.setStrokeWidth(focusRectBorderThickness);
 
-    canvas.drawRoundRect(calculateRectF(), focusRectBorderRadius, focusRectBorderRadius, paint);
+    canvas.drawRoundRect(calculateRectF(mCameraView.getHeight(), mCameraView.getWidth()),
+        focusRectBorderRadius, focusRectBorderRadius, paint);
   }
 
-  private RectF calculateRectF() {
-    int height = mCameraView.getHeight();
-    int width = mCameraView.getWidth();
-
+  private RectF calculateRectF(int height, int width) {
     int left, right, top, bottom, diameterWidth, diameterHeight;
 
     diameterWidth = width - (int) ((1 - detectorWidth) * width);
@@ -440,15 +447,23 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
     return new RectF(left, top, right, bottom);
   }
 
-  private Rect calculateRect() {
+  private Rect calculateRect(int height, int width) {
     Rect rect = new Rect();
-    calculateRectF().roundOut(rect);
+    calculateRectF(height, width).roundOut(rect);
     return rect;
   }
 
   private Rect resizeRect(Rect input, int sizeAdjustmentX, int sizeAdjustmentY) {
     Rect resized = new Rect();
-    resized.set(input.left - sizeAdjustmentX, input.top-sizeAdjustmentY, input.right + sizeAdjustmentX, input.bottom+sizeAdjustmentY);
+    resized.set(input.left - sizeAdjustmentX, input.top - sizeAdjustmentY,
+        input.right + sizeAdjustmentX, input.bottom + sizeAdjustmentY);
+    return resized;
+  }
+
+  private RectF resizeRectF(RectF input, int sizeAdjustmentX, float sizeAdjustmentY) {
+    RectF resized = new RectF();
+    resized.set(input.left - sizeAdjustmentX, input.top - sizeAdjustmentY,
+        input.right + sizeAdjustmentX, input.bottom + sizeAdjustmentY);
     return resized;
   }
 
@@ -475,7 +490,8 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
 
   private void drawFocusBackground() {
     Path path = new Path();
-    path.addRoundRect(calculateRectF(), focusRectBorderRadius, focusRectBorderRadius,
+    path.addRoundRect(calculateRectF(mCameraView.getHeight(), mCameraView.getWidth()),
+        focusRectBorderRadius, focusRectBorderRadius,
         Path.Direction.CCW);
     canvas.clipOutPath(path);
     canvas.drawColor(Color.parseColor(focusBackgroundColor));

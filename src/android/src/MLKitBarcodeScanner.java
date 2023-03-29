@@ -146,20 +146,24 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
           ArrayList<Bundle> barcodes = data.getParcelableArrayListExtra("barcodes");
           JSONArray resultBarcodes = new JSONArray();
           for (Bundle barcode : barcodes) {
-            Integer barcodeFormat = barcode.getInt(CaptureActivity.BARCODE_FORMAT, 0);
-            Integer barcodeType = barcode.getInt(CaptureActivity.BARCODE_TYPE, 0);
+            Integer barcodeFormat = barcode.getInt(CaptureActivity.BARCODE_FORMAT);
+            Integer barcodeType = barcode.getInt(CaptureActivity.BARCODE_TYPE);
+            Double distanceToCenter = barcode.getDouble(CaptureActivity.DISTANCE_TO_CENTER);
             String barcodeValue = barcode.getString(CaptureActivity.BARCODE_VALUE);
 
             JSONArray result = new JSONArray();
             result.put(barcodeValue);
             result.put(barcodeFormat);
             result.put(barcodeType);
+            result.put(distanceToCenter);
 
             Log.d("MLKitBarcodeScanner", "Barcode read: " + barcodeValue);
 
             resultBarcodes.put(result);
           }
           JSONArray result;
+          // for now just get the first barcode we find, they should be sorted by distance to center
+          // in the future (once IOS is done) we will return all of them
           try {
             result = resultBarcodes.getJSONArray(0);
           } catch (JSONException e) {
@@ -182,6 +186,7 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
         String err = data.getStringExtra("err");
         JSONArray result = new JSONArray();
         result.put(err);
+        result.put("");
         result.put("");
         result.put("");
         callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, result));
