@@ -77,10 +77,10 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
     if (!hasCamera || numberOfCameras == 0) {
       AlertDialog alertDialog = new AlertDialog.Builder(activity).create();
       alertDialog.setMessage(activity.getString(activity.getResources()
-          .getIdentifier("no_cameras_found", "string", activity.getPackageName())));
+          .getIdentifier("bcode_no_cameras_found", "string", activity.getPackageName())));
       alertDialog.setButton(
           DialogInterface.BUTTON_POSITIVE, activity.getString(activity.getResources()
-              .getIdentifier("ok", "string", activity.getPackageName())),
+              .getIdentifier("bcode_ok", "string", activity.getPackageName())),
           (dialog, which) -> dialog.dismiss());
       alertDialog.show();
       return false;

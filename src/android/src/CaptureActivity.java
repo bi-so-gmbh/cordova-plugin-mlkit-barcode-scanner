@@ -205,9 +205,9 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
         listener);
     Snackbar
         .make(surfaceView,
-            getResources().getIdentifier("permission_camera_rationale", STRING, getPackageName()),
+            getResources().getIdentifier("bcode_permission_camera_rationale", STRING, getPackageName()),
             BaseTransientBottomBar.LENGTH_INDEFINITE)
-        .setAction(getResources().getIdentifier("ok", STRING, getPackageName()), listener).show();
+        .setAction(getResources().getIdentifier("bcode_ok", STRING, getPackageName()), listener).show();
 
   }
 
@@ -229,8 +229,8 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
 
     AlertDialog.Builder builder = new AlertDialog.Builder(this);
     builder.setTitle("Camera permission required")
-        .setMessage(getResources().getIdentifier("no_camera_permission", STRING, getPackageName()))
-        .setPositiveButton(getResources().getIdentifier("ok", STRING, getPackageName()), listener)
+        .setMessage(getResources().getIdentifier("bcode_no_camera_permission", STRING, getPackageName()))
+        .setPositiveButton(getResources().getIdentifier("bcode_ok", STRING, getPackageName()), listener)
         .show();
   }
 

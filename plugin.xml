@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <plugin id="cordova-plugin-mlkit-barcode-scanner"
-  version="3.0.8"
+  version="3.0.9"
   xmlns="http://apache.org/cordova/ns/plugins/1.0"
   xmlns:android="http://schemas.android.com/apk/res/android">
   <name>cordova-plugin-mlkit-barcode-scanner</name>
@@ -94,9 +94,9 @@
     <resource-file src="src/android/res/assets/beep.ogg"
       target="assets/beep.ogg" />
     <resource-file src="src/android/res/values/strings-en.xml"
-      target="res/values/strings.xml" />
+      target="res/values/bcode_strings.xml" />
     <resource-file src="src/android/res/values/strings-de.xml"
-      target="res/values-de/strings.xml" />
+      target="res/values-de/bcode_strings.xml" />
     <resource-file src="src/android/res/layout/capture_activity.xml"
       target="res/layout/capture_activity.xml" />
     <resource-file src="src/android/res/drawable/flashlight.png"
