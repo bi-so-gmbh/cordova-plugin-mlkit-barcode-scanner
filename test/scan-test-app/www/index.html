@@ -21,37 +21,33 @@
             <div class="col-12">
               <form>
                 <h4>Scan options</h4>
-                <div class="form-check form-switch">
-                  <input class="form-check-input" type="checkbox" role="switch" id="beepOnSuccess" name="beepOnSuccess" value="true">
-                  <label class="form-check-label" for="beepOnSuccess">Beep on success</label>
-                </div>
-                <div class="form-check form-switch">
-                  <input class="form-check-input" type="checkbox" role="switch" id="vibrateOnSuccess" name="vibrateOnSuccess" value="true">
-                  <label class="form-check-label" for="vibrateOnSuccess">Vibrate on success</label>
-                </div>
-                <div class="form-check form-switch">
-                  <input class="form-check-input" type="checkbox" role="switch" id="rotateCamera" name="rotateCamera" value="true">
-                  <label class="form-check-label" for="rotateCamera">Rotate Camera</label>
-                </div>
                 <fieldset>
-                  <legend>Size:</legend>
+                  <legend>General:</legend>
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="beepOnSuccess" name="beepOnSuccess" value="true">
+                    <label class="form-check-label" for="beepOnSuccess">Beep on success</label>
+                  </div>
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="vibrateOnSuccess" name="vibrateOnSuccess" value="true">
+                    <label class="form-check-label" for="vibrateOnSuccess">Vibrate on success</label>
+                  </div>
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="rotateCamera" name="rotateCamera" value="true">
+                    <label class="form-check-label" for="rotateCamera">Rotate Camera</label>
+                  </div>
+                </fieldset>
+                <fieldset>
+                  <legend>Scan Area:</legend>
                   <div class="form-range">
-                    <label class="form-range-label" for="detectorSize">Size (IOS)</label>
+                    <label class="form-range-label" for="detectorSize">Size</label>
                     <input class="form-range-input" type="range" min="0" max="1" step="0.1" id="detectorSize" name="detectorSize">
                     <output>0.5</output>
                   </div>
-                  <div class="form-range">
-                    <label class="form-range-label" for="detectorHeight">Height (Android)</label>
-                    <input class="form-range-input" type="range" min="0" max="1" step="0.1" id="detectorHeight" name="detectorHeight">
-                    <output>0.5</output>
-                  </div>
-                  <div class="form-range">
-                    <label class="form-range-label" for="detectorWidth">Width (Android)</label>
-                    <input class="form-range-input" type="range" min="0" max="1" step="0.1" id="detectorWidth" name="detectorWidth">
-                    <output>0.5</output>
+                  <div class="form-text">
+                    <label class="form-text-label" for="detectorAspectRatio">Aspect Ratio</label>
+                    <input class="form-text-input" type="text" id="detectorAspectRatio" name="detectorAspectRatio">
                   </div>
                 </fieldset>
-                <h4>Android only options</h4>
                 <fieldset>
                   <legend>Rectangle Outline:</legend>
                   <div class="form-check form-switch">
@@ -69,11 +65,6 @@
                   <div class="form-number">
                     <label class="form-number-label" for="focusRectBorderRadius">Radius</label>
                     <input class="form-number-input" type="number" id="focusRectBorderRadius" name="focusRectBorderRadius">
-                  </div>
-                  <div class="form-range">
-                    <label class="form-range-label" for="scanAreaAdjustment">ScanAreaAdjustment (Android)</label>
-                    <input class="form-range-input" type="range" min="0" max="500" step="1" id="scanAreaAdjustment" name="scanAreaAdjustment">
-                    <output>0.5</output>
                   </div>
                 </fieldset>
                 <fieldset>

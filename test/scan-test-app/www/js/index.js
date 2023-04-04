@@ -24,14 +24,12 @@ document.addEventListener('deviceready', onDeviceReady, false);
 const options = {
   beepOnSuccess: false,
   vibrateOnSuccess: false,
-  detectorSize: 0.6,
-  detectorWidth: 0.9,
-  detectorHeight: 0.1,
+  detectorSize: 0.9,
+  detectorAspectRatio: "5:1",
   drawFocusRect: true,
   focusRectColor: "#FFFFFF",
   focusRectBorderRadius: 10,
   focusRectBorderThickness: 5,
-  scanAreaAdjustment: 0,
   drawFocusLine: false,
   focusLineColor: "#ff2d37",
   focusLineThickness: 2,
@@ -46,16 +44,23 @@ function onSuccess(result) {
   document.getElementById('output').prepend(node);
 }
 
+function onFail(result) {
+  if(result.cancelled) {
+    const node = document.createElement('div');
+    node.textContent = `${result.message}`;
+    document.getElementById('output').prepend(node);
+  }
+}
+
 function scan() {
   const formData = new FormData(document.querySelector('form'));
   
   for (const pair of formData.entries()) {
     const key = pair[0];
-    const value = pair[1];
-    options[key] = value;
+    options[key] = pair[1];
   }
   
-  cordova.plugins.mlkit.barcodeScanner.scan(options, onSuccess, console.error);
+  cordova.plugins.mlkit.barcodeScanner.scan(options, onSuccess, onFail);
 }
 
 function onDeviceReady() {

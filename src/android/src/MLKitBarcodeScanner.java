@@ -1,13 +1,8 @@
 package com.mobisys.cordova.plugins.mlkit.barcode.scanner;
 
-import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
-import android.hardware.camera2.CameraManager;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.VibrationEffect;
@@ -48,10 +43,8 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
     vibrator = vibratorManager.getDefaultVibrator();
     mediaPlayer = new MediaPlayer();
 
-    try {
-      AssetFileDescriptor descriptor = context.getAssets().openFd("beep.ogg");
+    try (AssetFileDescriptor descriptor = context.getAssets().openFd("beep.ogg")){
       mediaPlayer.setDataSource(descriptor.getFileDescriptor(), descriptor.getStartOffset(), descriptor.getLength());
-      descriptor.close();
       mediaPlayer.prepare();
     } catch (IOException e) {
       e.printStackTrace();
@@ -60,31 +53,7 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
 
   @Override
   public boolean execute(String action, JSONArray args, CallbackContext callbackContext) {
-    Activity activity = cordova.getActivity();
-    boolean hasCamera = activity.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY);
-    CameraManager cameraManager = (CameraManager) activity.getSystemService(Context.CAMERA_SERVICE);
-
     this.callbackContext = callbackContext;
-
-    int numberOfCameras = 0;
-
-    try {
-      numberOfCameras = cameraManager.getCameraIdList().length;
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-
-    if (!hasCamera || numberOfCameras == 0) {
-      AlertDialog alertDialog = new AlertDialog.Builder(activity).create();
-      alertDialog.setMessage(activity.getString(activity.getResources()
-          .getIdentifier("bcode_no_cameras_found", "string", activity.getPackageName())));
-      alertDialog.setButton(
-          DialogInterface.BUTTON_POSITIVE, activity.getString(activity.getResources()
-              .getIdentifier("bcode_ok", "string", activity.getPackageName())),
-          (dialog, which) -> dialog.dismiss());
-      alertDialog.show();
-      return false;
-    }
 
     if (action.equals("startScan")) {
       class OneShotTask implements Runnable {
@@ -100,7 +69,7 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
           try {
             openNewActivity(context, args);
           } catch (JSONException e) {
-            MLKitBarcodeScanner.this.callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, e.toString()));
+            MLKitBarcodeScanner.this.callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, "JSON_EXCEPTION"));
           }
         }
       }
@@ -115,14 +84,13 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
     JSONObject config = args.getJSONObject(0);
     Intent intent = new Intent(context, CaptureActivity.class);
     intent.putExtra("BarcodeFormats", config.optInt("barcodeFormats", 1234));
-    intent.putExtra("DetectorWidth", config.optDouble("detectorWidth", 0.5));
-    intent.putExtra("DetectorHeight", config.optDouble("detectorHeight", 0.5));
+    intent.putExtra("DetectorAspectRatio", config.optString("detectorAspectRatio", "1:1"));
+    intent.putExtra("DetectorSize", config.optDouble("detectorSize", 0.5));
     intent.putExtra("RotateCamera", config.optBoolean("rotateCamera", false));
     intent.putExtra("DrawFocusRect", config.optBoolean("drawFocusRect", true));
     intent.putExtra("FocusRectColor", config.optString("focusRectColor", "#FFFFFF"));
     intent.putExtra("FocusRectBorderRadius", config.optInt("focusRectBorderRadius", 100));
     intent.putExtra("FocusRectBorderThickness", config.optInt("focusRectBorderThickness", 5));
-    intent.putExtra("ScanAreaAdjustment", config.optInt("scanAreaAdjustment", 0));
     intent.putExtra("DrawFocusLine", config.optBoolean("drawFocusLine", true));
     intent.putExtra("FocusLineColor", config.optString("focusLineColor", "#FFFFFF"));
     intent.putExtra("FocusLineThickness", config.optInt("focusLineThickness", 5));
@@ -167,7 +135,8 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
           try {
             result = resultBarcodes.getJSONArray(0);
           } catch (JSONException e) {
-            throw new RuntimeException(e);
+            callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, "JSON_EXCEPTION"));
+            return;
           }
           callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK, result));
 
@@ -183,12 +152,9 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
 
         }
       } else {
-        String err = data.getStringExtra("err");
+        String err = data.getStringExtra("error");
         JSONArray result = new JSONArray();
         result.put(err);
-        result.put("");
-        result.put("");
-        result.put("");
         callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, result));
       }
     }

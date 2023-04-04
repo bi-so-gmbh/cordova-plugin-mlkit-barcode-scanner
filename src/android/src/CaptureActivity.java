@@ -1,6 +1,7 @@
 package com.mobisys.cordova.plugins.mlkit.barcode.scanner;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -10,9 +11,10 @@ import android.graphics.ImageFormat;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.PorterDuff;
-import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Path;
+import android.hardware.camera2.CameraAccessException;
+import android.hardware.camera2.CameraManager;
 import android.os.Bundle;
 
 import android.util.Log;
@@ -24,6 +26,7 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.widget.ImageButton;
 
+import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
@@ -31,13 +34,9 @@ import androidx.camera.core.AspectRatio;
 import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageAnalysis;
-import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
-import androidx.camera.view.transform.CoordinateTransform;
-import androidx.camera.view.transform.ImageProxyTransformFactory;
-import androidx.camera.view.transform.OutputTransform;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LiveData;
@@ -54,9 +53,8 @@ import com.google.mlkit.vision.common.InputImage;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -64,13 +62,12 @@ import java.util.concurrent.Executors;
 public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.Callback {
 
   private int barcodeFormats;
-  private double detectorHeight = .5;
-  private double detectorWidth = .5;
+  private double detectorSize = .5;
+  private String detectorAspectRatio;
   private boolean drawFocusRect = true;
   private String focusRectColor = "#FFFFFF";
   private int focusRectBorderThickness = 5;
   private int focusRectBorderRadius = 100;
-  private int scanAreaAdjustment = 0;
   private boolean drawFocusLine = true;
   private String focusLineColor = "#FFFFFF";
   private int focusLineThickness = 5;
@@ -82,42 +79,25 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
   public static final String DISTANCE_TO_CENTER = "distanceToCenter";
   private final ExecutorService executor = Executors.newSingleThreadExecutor();
   private PreviewView mCameraView;
-  private SurfaceHolder holder;
   private SurfaceView surfaceView;
-  private Canvas canvas;
-  private Paint paint;
   private static final int RC_HANDLE_CAMERA_PERM = 2;
   private Camera camera;
   private ScaleGestureDetector scaleGestureDetector;
   private GestureDetector gestureDetector;
-  private static final String STRING = "string";
+  private static final String[] PERMISSIONS = new String[]{Manifest.permission.CAMERA};
 
-  @Override
-  protected void onCreate(Bundle savedInstanceState) {
-    super.onCreate(savedInstanceState);
-    setContentView(getResources().getIdentifier("capture_activity", "layout", getPackageName()));
-
-    // Create the bounding box
-    surfaceView = findViewById(getResources().getIdentifier("overlay", "id", getPackageName()));
-    surfaceView.setZOrderOnTop(true);
-
-    holder = surfaceView.getHolder();
-    holder.setFormat(PixelFormat.TRANSPARENT);
-    holder.addCallback(this);
-
+  private void handleSettings() {
     // read parameters from the intent used to launch the activity.
     barcodeFormats = getIntent().getIntExtra("BarcodeFormats", 1234);
-    detectorWidth = getIntent().getDoubleExtra("DetectorWidth", detectorWidth);
-    detectorHeight = getIntent().getDoubleExtra("DetectorHeight", detectorHeight);
-
-    if (detectorWidth <= 0
-        || detectorWidth >= 1) { // setting boundary detectorSize must be between 0 to 1.
-      detectorWidth = 0.5;
+    if (barcodeFormats == 0 || barcodeFormats == 1234) {
+      barcodeFormats = (Barcode.FORMAT_CODE_39 | Barcode.FORMAT_DATA_MATRIX);
     }
+    detectorSize = getIntent().getDoubleExtra("DetectorSize", detectorSize);
+    detectorAspectRatio = getIntent().getStringExtra("DetectorAspectRatio");
 
-    if (detectorHeight <= 0
-        || detectorHeight >= 1) { // setting boundary detectorSize must be between 0 to 1.
-      detectorHeight = 0.5;
+    if (detectorSize <= 0 || detectorSize >= 1) {
+      // setting boundary detectorSize must be between 0 and 1.
+      detectorSize = 0.5;
     }
 
     drawFocusRect = getIntent().getBooleanExtra("DrawFocusRect", drawFocusRect);
@@ -125,20 +105,41 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
     focusRectBorderRadius = getIntent().getIntExtra("FocusRectBorderRadius", focusRectBorderRadius);
     focusRectBorderThickness = getIntent().getIntExtra("FocusRectBorderThickness",
         focusRectBorderThickness);
-    scanAreaAdjustment = getIntent().getIntExtra("ScanAreaAdjustment", scanAreaAdjustment);
     drawFocusLine = getIntent().getBooleanExtra("DrawFocusLine", drawFocusLine);
     focusLineColor = getIntent().getStringExtra("FocusLineColor");
     focusLineThickness = getIntent().getIntExtra("FocusLineThickness", focusLineThickness);
     drawFocusBackground = getIntent().getBooleanExtra("DrawFocusBackground", drawFocusBackground);
     focusBackgroundColor = getIntent().getStringExtra("FocusBackgroundColor");
+  }
 
-    int rc = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA);
+  @Override
+  protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
 
-    if (rc == PackageManager.PERMISSION_GRANTED) {
-      // Start Camera
+    CameraManager cameraManager = (CameraManager) this.getSystemService(Context.CAMERA_SERVICE);
+    try {
+      if(!getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY) || cameraManager.getCameraIdList().length == 0) {
+        finishWithError("NO_CAMERA");
+      }
+    } catch (CameraAccessException e) {
+      finishWithError("NO_CAMERA");
+    }
+    setContentView(getResources().getIdentifier("capture_activity", "layout", getPackageName()));
+
+    handleSettings();
+
+    // Create the bounding box
+    surfaceView = findViewById(getResources().getIdentifier("overlay", "id", getPackageName()));
+    surfaceView.setZOrderOnTop(true);
+
+    SurfaceHolder holder = surfaceView.getHolder();
+    holder.setFormat(PixelFormat.TRANSPARENT);
+    holder.addCallback(this);
+
+    if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
       startCamera();
     } else {
-      requestCameraPermission();
+      requestPermissions(PERMISSIONS, RC_HANDLE_CAMERA_PERM);
     }
 
     gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener());
@@ -148,7 +149,6 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
         getResources().getIdentifier("torch_button", "id", this.getPackageName()));
 
     torchButton.setOnClickListener(v -> {
-
       LiveData<Integer> flashState = camera.getCameraInfo().getTorchState();
       if (flashState.getValue() != null) {
         boolean state = flashState.getValue() == 1;
@@ -157,97 +157,26 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
                 "drawable", CaptureActivity.this.getPackageName()));
         camera.getCameraControl().enableTorch(!state);
       }
-
     });
-  }
-
-  // ----------------------------------------------------------------------------
-  // | Helper classes
-  // ----------------------------------------------------------------------------
-
-  private class ScaleListener implements ScaleGestureDetector.OnScaleGestureListener {
-
-    @Override
-    public boolean onScale(ScaleGestureDetector detector) {
-      return false;
-    }
-
-    @Override
-    public boolean onScaleBegin(ScaleGestureDetector detector) {
-      return true;
-    }
-
-    @Override
-    public void onScaleEnd(ScaleGestureDetector detector) {
-
-      if (camera != null) {
-        float scale = camera.getCameraInfo().getZoomState().getValue().getZoomRatio()
-            * detector.getScaleFactor();
-        camera.getCameraControl().setZoomRatio(scale);
-      }
-    }
-  }
-
-  private void requestCameraPermission() {
-
-    final String[] permissions = new String[]{Manifest.permission.CAMERA,
-        Manifest.permission.WRITE_EXTERNAL_STORAGE};
-
-    boolean shouldShowPermission = !ActivityCompat.shouldShowRequestPermissionRationale(this,
-        Manifest.permission.CAMERA);
-    shouldShowPermission = shouldShowPermission
-        && !ActivityCompat.shouldShowRequestPermissionRationale(this,
-        Manifest.permission.WRITE_EXTERNAL_STORAGE);
-
-    if (shouldShowPermission) {
-      ActivityCompat.requestPermissions(this, permissions, RC_HANDLE_CAMERA_PERM);
-      return;
-    }
-
-    View.OnClickListener listener = view -> ActivityCompat.requestPermissions(CaptureActivity.this,
-        permissions, RC_HANDLE_CAMERA_PERM);
-
-    findViewById(
-        getResources().getIdentifier("topLayout", "id", getPackageName())).setOnClickListener(
-        listener);
-    Snackbar
-        .make(surfaceView,
-            getResources().getIdentifier("bcode_permission_camera_rationale", STRING,
-                getPackageName()),
-            BaseTransientBottomBar.LENGTH_INDEFINITE)
-        .setAction(getResources().getIdentifier("bcode_ok", STRING, getPackageName()), listener)
-        .show();
-
   }
 
   @Override
   public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
       @NonNull int[] grantResults) {
-    if (requestCode != RC_HANDLE_CAMERA_PERM) {
+    if (requestCode == RC_HANDLE_CAMERA_PERM) {
+      if (grantResults.length == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+        startCamera();
+        return;
+      }
+      finishWithError("NO_CAMERA_PERMISSION");
+    } else {
       super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-      return;
     }
-
-    if (grantResults.length != 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-      startCamera();
-      drawFocus();
-      return;
-    }
-
-    DialogInterface.OnClickListener listener = (dialog, id) -> finish();
-
-    AlertDialog.Builder builder = new AlertDialog.Builder(this);
-    builder.setTitle("Camera permission required")
-        .setMessage(
-            getResources().getIdentifier("bcode_no_camera_permission", STRING, getPackageName()))
-        .setPositiveButton(getResources().getIdentifier("bcode_ok", STRING, getPackageName()),
-            listener)
-        .show();
   }
 
   @Override
   public void surfaceCreated(SurfaceHolder surfaceHolder) {
-    // intentionally empty
+    //intentionally empty
   }
 
   @Override
@@ -268,16 +197,11 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
     return b || c || super.onTouchEvent(e);
   }
 
-  @Override
-  protected void onPause() {
-    super.onPause();
-
-  }
-
-  @Override
-  protected void onResume() {
-    super.onResume();
-
+  private void finishWithError(String errorMessage) {
+    Intent result = new Intent();
+    result.putExtra("error", errorMessage);
+    setResult(CommonStatusCodes.ERROR, result);
+    finish();
   }
 
   void startCamera() {
@@ -311,14 +235,6 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
    * Binding to camera
    */
   private void bindPreview(ProcessCameraProvider cameraProvider) {
-
-    int barcodeFormat;
-    if (barcodeFormats == 0 || barcodeFormats == 1234) {
-      barcodeFormat = (Barcode.FORMAT_CODE_39 | Barcode.FORMAT_DATA_MATRIX);
-    } else {
-      barcodeFormat = barcodeFormats;
-    }
-
     Preview preview = new Preview.Builder().build();
 
     CameraSelector cameraSelector = new CameraSelector.Builder().requireLensFacing(
@@ -330,15 +246,15 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
     ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
         .setTargetAspectRatio(AspectRatio.RATIO_16_9)
-        .setOutputImageFormat(ImageFormat.RGB_565)
         .build();
 
     BarcodeScanner scanner = BarcodeScanning
-        .getClient(new BarcodeScannerOptions.Builder().setBarcodeFormats(barcodeFormat).build());
+        .getClient(new BarcodeScannerOptions.Builder().setBarcodeFormats(barcodeFormats).build());
 
     imageAnalysis.setAnalyzer(executor, image -> {
 
       if (image.getImage() == null) {
+        image.close();
         return;
       }
 
@@ -346,85 +262,94 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
           image.getImageInfo().getRotationDegrees());
 
       scanner.process(inputImage)
-          .addOnSuccessListener(barCodes -> {
-            if (!barCodes.isEmpty()) {
-              ArrayList<Bundle> barcodes = new ArrayList<>();
-              RectF scanArea;
-              if (inputImage.getRotationDegrees() % 90 == 0) {
-                scanArea = calculateRectF(inputImage.getWidth(), inputImage.getHeight());
-              } else {
-                scanArea = calculateRectF(inputImage.getHeight(), inputImage.getWidth());
-              }
-              scanArea = resizeRectF(scanArea, 0, scanAreaAdjustment);
-
-              for (Barcode barcode : barCodes) {
-                RectF barcodeBounds = new RectF(barcode.getBoundingBox());
-                if (scanArea.contains(barcodeBounds.centerX(), barcodeBounds.centerY())) {
-                  Bundle bundle = new Bundle();
-                  String value = barcode.getRawValue();
-
-                  // rawValue returns null if string is not UTF-8 encoded.
-                  // If that's the case, we will decode it as ASCII,
-                  // because it's the most common encoding for barcodes.
-                  // e.g. https://www.barcodefaq.com/1d/code-128/
-                  if (value == null) {
-                    value = new String(barcode.getRawBytes(), StandardCharsets.US_ASCII);
-                  }
-
-                  bundle.putInt(BARCODE_FORMAT, barcode.getFormat());
-                  bundle.putInt(BARCODE_TYPE, barcode.getValueType());
-                  bundle.putString(BARCODE_VALUE, value);
-                  double distanceToCenter = Math.hypot(scanArea.centerX() - barcodeBounds.centerX(),
-                      scanArea.centerY() - barcodeBounds.centerY());
-                  bundle.putDouble(DISTANCE_TO_CENTER, distanceToCenter);
-
-                  barcodes.add(bundle);
-                }
-              }
-
-              if (!barcodes.isEmpty()) {
-                Intent data = new Intent();
-                barcodes.sort(Comparator.comparingDouble(b -> b.getDouble(DISTANCE_TO_CENTER)));
-                data.putParcelableArrayListExtra("barcodes", barcodes);
-                setResult(CommonStatusCodes.SUCCESS, data);
-
-                finish();
-              }
-            }
-          }).addOnFailureListener(e -> {
-          }).addOnCompleteListener(task -> image.close());
+          .addOnSuccessListener(barCodes -> processBarcodes(barCodes, inputImage))
+          .addOnFailureListener(e -> {
+          })
+          .addOnCompleteListener(task -> image.close());
     });
 
     camera = cameraProvider.bindToLifecycle(this, cameraSelector, imageAnalysis, preview);
   }
 
+  private void processBarcodes(List<Barcode> detectedBarcodes, InputImage inputImage) {
+    if (!detectedBarcodes.isEmpty()) {
+      ArrayList<Bundle> barcodesInScanArea = new ArrayList<>();
+      RectF scanArea;
+      if (inputImage.getRotationDegrees() == 90) {
+        scanArea = calculateRectF(inputImage.getWidth(), inputImage.getHeight());
+      } else {
+        scanArea = calculateRectF(inputImage.getHeight(), inputImage.getWidth());
+      }
+
+      for (Barcode barcode : detectedBarcodes) {
+        RectF barcodeBounds = new RectF(barcode.getBoundingBox());
+        if (scanArea.contains(barcodeBounds)) {
+          Bundle bundle = new Bundle();
+          String value = barcode.getRawValue();
+
+          // rawValue returns null if string is not UTF-8 encoded.
+          // If that's the case, we will decode it as ASCII,
+          // because it's the most common encoding for barcodes.
+          // e.g. https://www.barcodefaq.com/1d/code-128/
+          if (value == null) {
+            value = new String(barcode.getRawBytes(), StandardCharsets.US_ASCII);
+          }
+
+          bundle.putInt(BARCODE_FORMAT, barcode.getFormat());
+          bundle.putInt(BARCODE_TYPE, barcode.getValueType());
+          bundle.putString(BARCODE_VALUE, value);
+          double distanceToCenter = Math.hypot(scanArea.centerX() - barcodeBounds.centerX(),
+              scanArea.centerY() - barcodeBounds.centerY());
+          bundle.putDouble(DISTANCE_TO_CENTER, distanceToCenter);
+
+          barcodesInScanArea.add(bundle);
+        }
+      }
+
+      if (!barcodesInScanArea.isEmpty()) {
+        Intent data = new Intent();
+        barcodesInScanArea.sort(Comparator.comparingDouble(b -> b.getDouble(DISTANCE_TO_CENTER)));
+        data.putParcelableArrayListExtra("barcodes", barcodesInScanArea);
+        setResult(CommonStatusCodes.SUCCESS, data);
+
+        finish();
+      }
+    }
+  }
+
+
+  /**
+   * Draws the overlay over the camera preview
+   */
   private void drawFocus() {
     if (mCameraView != null) {
-      canvas = holder.lockCanvas();
+      Canvas canvas = surfaceView.getHolder().lockCanvas();
       canvas.drawColor(0, PorterDuff.Mode.CLEAR);
 
       if (drawFocusLine) {
-        drawFocusLine();
+        drawFocusLine(canvas);
       }
 
       if (drawFocusRect) {
-        drawFocusRect();
+        drawFocusRect(canvas);
       }
 
       if (drawFocusBackground) {
-        drawFocusBackground();
+        drawFocusBackground(canvas);
       }
 
-      holder.unlockCanvasAndPost(canvas);
+      surfaceView.getHolder().unlockCanvasAndPost(canvas);
     }
   }
 
   /**
-   * For drawing the rectangular box
+   * Draws a rectangle around the scan area Border color and thickness are determined by config
+   *
+   * @param canvas The canvas to draw on
    */
-  private void drawFocusRect() {
+  private void drawFocusRect(Canvas canvas) {
     // border's properties
-    paint = new Paint();
+    Paint paint = new Paint();
     paint.setStyle(Paint.Style.STROKE);
     paint.setColor(Color.parseColor(focusRectColor));
     paint.setStrokeWidth(focusRectBorderThickness);
@@ -433,67 +358,116 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
         focusRectBorderRadius, focusRectBorderRadius, paint);
   }
 
+  /**
+   * Calculates a centered rectangle. Rectangle will: - be centered in the area defined by width x
+   * height, - have the aspect ratio set in the config - have a width of min(width, height) *
+   * detectorSize set in config
+   *
+   * @param height height of the area that the rectangle will be centered in
+   * @param width  width of the area that the rectangle will be centered in
+   * @return rectangle based on float values, centered in the area
+   */
   private RectF calculateRectF(int height, int width) {
-    int left, right, top, bottom, diameterWidth, diameterHeight;
+    float rectAspectRatio = getAspectRatio();
 
-    diameterWidth = width - (int) ((1 - detectorWidth) * width);
-    diameterHeight = height - (int) ((1 - detectorHeight) * height);
+    float rectWidth = (float) (Math.min(height, width) * detectorSize);
+    float rectHeight = rectWidth / rectAspectRatio;
 
-    left = width / 2 - diameterWidth / 2;
-    top = height / 2 - diameterHeight / 2;
-    right = width / 2 + diameterWidth / 2;
-    bottom = height / 2 + diameterHeight / 2;
+    float offsetX = width - rectWidth;
+    float offsetY = height - rectHeight;
+
+    float left = offsetX / 2;
+    float top = offsetY / 2;
+    float right = left + rectWidth;
+    float bottom = top + rectHeight;
 
     return new RectF(left, top, right, bottom);
   }
 
-  private Rect calculateRect(int height, int width) {
-    Rect rect = new Rect();
-    calculateRectF(height, width).roundOut(rect);
-    return rect;
+  /**
+   * Takes the aspect ratio from the config (which is a String) and turns it into a number.
+   *
+   * @return The calculated aspect ratio, or 1 in case of error
+   */
+  private float getAspectRatio() {
+    if (detectorAspectRatio.contains(":")) {
+      String[] parts = detectorAspectRatio.split(":");
+      if (parts.length == 2) {
+        try {
+          float left = Integer.parseInt(parts[0]);
+          float right = Integer.parseInt(parts[1]);
+          return (left / right);
+        } catch (NumberFormatException e) {
+          // do nothing
+        }
+      }
+    }
+    return 1;
   }
 
-  private Rect resizeRect(Rect input, int sizeAdjustmentX, int sizeAdjustmentY) {
-    Rect resized = new Rect();
-    resized.set(input.left - sizeAdjustmentX, input.top - sizeAdjustmentY,
-        input.right + sizeAdjustmentX, input.bottom + sizeAdjustmentY);
-    return resized;
-  }
-
-  private RectF resizeRectF(RectF input, int sizeAdjustmentX, float sizeAdjustmentY) {
-    RectF resized = new RectF();
-    resized.set(input.left - sizeAdjustmentX, input.top - sizeAdjustmentY,
-        input.right + sizeAdjustmentX, input.bottom + sizeAdjustmentY);
-    return resized;
-  }
-
-  private void drawFocusLine() {
+  /**
+   * Draws a line through the center of the scan area. Color and line thickness are determined by
+   * config
+   *
+   * @param canvas The canvas to draw on
+   */
+  private void drawFocusLine(Canvas canvas) {
     int height = mCameraView.getHeight();
     int width = mCameraView.getWidth();
 
-    int left, right, top, bottom, diameterWidth;
-
-    diameterWidth = width - (int) ((1 - detectorWidth) * width);
+    float lineWidth =
+        Math.min(height, width) - (float) ((1 - detectorSize) * Math.min(height, width));
 
     // border's properties
-    paint = new Paint();
+    Paint paint = new Paint();
     paint.setColor(Color.parseColor(focusLineColor));
     paint.setStrokeWidth(focusLineThickness);
 
-    left = width / 2 - diameterWidth / 2;
-    top = height / 2;
-    right = width / 2 + diameterWidth / 2;
-    bottom = height / 2;
+    float left = width / 2F - lineWidth / 2;
+    float top = height / 2F;
+    float right = width / 2F + lineWidth / 2;
+    float bottom = height / 2F;
 
     canvas.drawLine(left, top, right, bottom, paint);
   }
 
-  private void drawFocusBackground() {
+  /**
+   * Fills out everything but the scan area. Color is determined by config
+   *
+   * @param canvas The canvas to draw on
+   */
+  private void drawFocusBackground(Canvas canvas) {
     Path path = new Path();
     path.addRoundRect(calculateRectF(mCameraView.getHeight(), mCameraView.getWidth()),
         focusRectBorderRadius, focusRectBorderRadius,
         Path.Direction.CCW);
     canvas.clipOutPath(path);
     canvas.drawColor(Color.parseColor(focusBackgroundColor));
+  }
+
+  // ----------------------------------------------------------------------------
+  // | Helper classes
+  // ----------------------------------------------------------------------------
+
+  private class ScaleListener implements ScaleGestureDetector.OnScaleGestureListener {
+
+    @Override
+    public boolean onScale(ScaleGestureDetector detector) {
+      return false;
+    }
+
+    @Override
+    public boolean onScaleBegin(ScaleGestureDetector detector) {
+      return true;
+    }
+
+    @Override
+    public void onScaleEnd(ScaleGestureDetector detector) {
+      if (camera != null && camera.getCameraInfo().getZoomState().getValue() != null) {
+        float scale = camera.getCameraInfo().getZoomState().getValue().getZoomRatio()
+            * detector.getScaleFactor();
+        camera.getCameraControl().setZoomRatio(scale);
+      }
+    }
   }
 }
