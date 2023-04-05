@@ -90,6 +90,10 @@
       target-dir="src/com/mobisys/cordova/plugins/mlkit/barcode/scanner" />
     <source-file src="src/android/src/MLKitBarcodeScanner.java"
       target-dir="src/com/mobisys/cordova/plugins/mlkit/barcode/scanner" />
+    <source-file src="src/android/src/BarcodeAnalyzer.java"
+      target-dir="src/com/mobisys/cordova/plugins/mlkit/barcode/scanner" />
+    <source-file src="src/android/src/BarcodesListener.java"
+      target-dir="src/com/mobisys/cordova/plugins/mlkit/barcode/scanner" />
 
     <resource-file src="src/android/res/assets/beep.ogg"
       target="assets/beep.ogg" />

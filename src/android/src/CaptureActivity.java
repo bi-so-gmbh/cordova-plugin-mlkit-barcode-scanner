@@ -2,12 +2,10 @@ package com.mobisys.cordova.plugins.mlkit.barcode.scanner;
 
 import android.Manifest;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.ImageFormat;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.PorterDuff;
@@ -17,18 +15,14 @@ import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraManager;
 import android.os.Bundle;
 
-import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
-import android.view.View;
 import android.widget.ImageButton;
 
-import android.widget.Toast;
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.AspectRatio;
 import androidx.camera.core.Camera;
@@ -37,19 +31,12 @@ import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
-import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LiveData;
 
 import com.google.android.gms.common.api.CommonStatusCodes;
-import com.google.android.material.snackbar.BaseTransientBottomBar;
-import com.google.android.material.snackbar.Snackbar;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.mlkit.vision.barcode.common.Barcode;
-import com.google.mlkit.vision.barcode.BarcodeScanner;
-import com.google.mlkit.vision.barcode.BarcodeScannerOptions;
-import com.google.mlkit.vision.barcode.BarcodeScanning;
-import com.google.mlkit.vision.common.InputImage;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -58,6 +45,8 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import com.mobisys.cordova.plugins.mlkit.barcode.scanner.BarcodeAnalyzer;
 
 public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.Callback {
 
@@ -248,37 +237,22 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
         .setTargetAspectRatio(AspectRatio.RATIO_16_9)
         .build();
 
-    BarcodeScanner scanner = BarcodeScanning
-        .getClient(new BarcodeScannerOptions.Builder().setBarcodeFormats(barcodeFormats).build());
+    BarcodeAnalyzer barcodeAnalyzer = new BarcodeAnalyzer(barcodeFormats, this::processBarcodes, 5);
 
-    imageAnalysis.setAnalyzer(executor, image -> {
-
-      if (image.getImage() == null) {
-        image.close();
-        return;
-      }
-
-      InputImage inputImage = InputImage.fromMediaImage(image.getImage(),
-          image.getImageInfo().getRotationDegrees());
-
-      scanner.process(inputImage)
-          .addOnSuccessListener(barCodes -> processBarcodes(barCodes, inputImage))
-          .addOnFailureListener(e -> {
-          })
-          .addOnCompleteListener(task -> image.close());
-    });
+    imageAnalysis.setAnalyzer(executor, barcodeAnalyzer);
 
     camera = cameraProvider.bindToLifecycle(this, cameraSelector, imageAnalysis, preview);
   }
 
-  private void processBarcodes(List<Barcode> detectedBarcodes, InputImage inputImage) {
+  public void processBarcodes(List<Barcode> detectedBarcodes, int width, int height, int rotation) {
     if (!detectedBarcodes.isEmpty()) {
       ArrayList<Bundle> barcodesInScanArea = new ArrayList<>();
       RectF scanArea;
-      if (inputImage.getRotationDegrees() == 90) {
-        scanArea = calculateRectF(inputImage.getWidth(), inputImage.getHeight());
+
+      if (rotation == 90) {
+        scanArea = calculateRectF(width, height);
       } else {
-        scanArea = calculateRectF(inputImage.getHeight(), inputImage.getWidth());
+        scanArea = calculateRectF(height, width);
       }
 
       for (Barcode barcode : detectedBarcodes) {
