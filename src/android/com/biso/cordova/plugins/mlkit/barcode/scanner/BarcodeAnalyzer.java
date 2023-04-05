@@ -20,8 +20,8 @@ public class BarcodeAnalyzer implements Analyzer {
   List<Barcode> lastBarcodes;
   int stableCounter = 0;
   final int stableThreshold;
-  BarcodeScanner scanner;
-  BarcodesListener barcodesListener;
+  final BarcodeScanner scanner;
+  final BarcodesListener barcodesListener;
 
   public BarcodeAnalyzer(int barcodeFormats, BarcodesListener barcodesListener, int stableThreshold) {
     int useBarcodeFormats = barcodeFormats;
