@@ -1,4 +1,4 @@
-package com.mobisys.cordova.plugins.mlkit.barcode.scanner;
+package com.biso.cordova.plugins.mlkit.barcode.scanner;
 
 import android.util.Log;
 import androidx.annotation.NonNull;
@@ -17,17 +17,19 @@ import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 
 public class BarcodeAnalyzer implements Analyzer {
-
   List<Barcode> lastBarcodes;
   int stableCounter = 0;
   final int stableThreshold;
-
   BarcodeScanner scanner;
   BarcodesListener barcodesListener;
 
   public BarcodeAnalyzer(int barcodeFormats, BarcodesListener barcodesListener, int stableThreshold) {
+    int useBarcodeFormats = barcodeFormats;
+    if (useBarcodeFormats == 0 || useBarcodeFormats == 1234) {
+      useBarcodeFormats = (Barcode.FORMAT_CODE_39 | Barcode.FORMAT_DATA_MATRIX);
+    }
     scanner = BarcodeScanning
-        .getClient(new BarcodeScannerOptions.Builder().setBarcodeFormats(barcodeFormats).build());
+        .getClient(new BarcodeScannerOptions.Builder().setBarcodeFormats(useBarcodeFormats).build());
     this.barcodesListener = barcodesListener;
     this.lastBarcodes = new ArrayList<>();
     this.stableThreshold = stableThreshold;

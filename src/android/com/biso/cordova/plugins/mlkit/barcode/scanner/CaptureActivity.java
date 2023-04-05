@@ -1,4 +1,18 @@
-package com.mobisys.cordova.plugins.mlkit.barcode.scanner;
+package com.biso.cordova.plugins.mlkit.barcode.scanner;
+
+import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.BARCODE_FORMATS;
+import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.DETECTOR_ASPECT_RATIO;
+import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.DETECTOR_SIZE;
+import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.DRAW_FOCUS_BACKGROUND;
+import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.DRAW_FOCUS_LINE;
+import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.DRAW_FOCUS_RECT;
+import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.FOCUS_BACKGROUND_COLOR;
+import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.FOCUS_LINE_COLOR;
+import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.FOCUS_LINE_THICKNESS;
+import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.FOCUS_RECT_BORDER_RADIUS;
+import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.FOCUS_RECT_BORDER_THICKNESS;
+import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.FOCUS_RECT_COLOR;
+import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.STABLE_THRESHOLD;
 
 import android.Manifest;
 import android.content.Context;
@@ -46,22 +60,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import com.mobisys.cordova.plugins.mlkit.barcode.scanner.BarcodeAnalyzer;
-
 public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.Callback {
 
-  private int barcodeFormats;
-  private double detectorSize = .5;
-  private String detectorAspectRatio;
-  private boolean drawFocusRect = true;
-  private String focusRectColor = "#FFFFFF";
-  private int focusRectBorderThickness = 5;
-  private int focusRectBorderRadius = 100;
-  private boolean drawFocusLine = true;
-  private String focusLineColor = "#FFFFFF";
-  private int focusLineThickness = 5;
-  private boolean drawFocusBackground = true;
-  private String focusBackgroundColor = "#CCFFFFFF";
   public static final String BARCODE_FORMAT = "MLKitBarcodeFormat";
   public static final String BARCODE_TYPE = "MLKitBarcodeType";
   public static final String BARCODE_VALUE = "MLKitBarcodeValue";
@@ -73,33 +73,9 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
   private Camera camera;
   private ScaleGestureDetector scaleGestureDetector;
   private GestureDetector gestureDetector;
+
+  private Bundle settings;
   private static final String[] PERMISSIONS = new String[]{Manifest.permission.CAMERA};
-
-  private void handleSettings() {
-    // read parameters from the intent used to launch the activity.
-    barcodeFormats = getIntent().getIntExtra("BarcodeFormats", 1234);
-    if (barcodeFormats == 0 || barcodeFormats == 1234) {
-      barcodeFormats = (Barcode.FORMAT_CODE_39 | Barcode.FORMAT_DATA_MATRIX);
-    }
-    detectorSize = getIntent().getDoubleExtra("DetectorSize", detectorSize);
-    detectorAspectRatio = getIntent().getStringExtra("DetectorAspectRatio");
-
-    if (detectorSize <= 0 || detectorSize >= 1) {
-      // setting boundary detectorSize must be between 0 and 1.
-      detectorSize = 0.5;
-    }
-
-    drawFocusRect = getIntent().getBooleanExtra("DrawFocusRect", drawFocusRect);
-    focusRectColor = getIntent().getStringExtra("FocusRectColor");
-    focusRectBorderRadius = getIntent().getIntExtra("FocusRectBorderRadius", focusRectBorderRadius);
-    focusRectBorderThickness = getIntent().getIntExtra("FocusRectBorderThickness",
-        focusRectBorderThickness);
-    drawFocusLine = getIntent().getBooleanExtra("DrawFocusLine", drawFocusLine);
-    focusLineColor = getIntent().getStringExtra("FocusLineColor");
-    focusLineThickness = getIntent().getIntExtra("FocusLineThickness", focusLineThickness);
-    drawFocusBackground = getIntent().getBooleanExtra("DrawFocusBackground", drawFocusBackground);
-    focusBackgroundColor = getIntent().getStringExtra("FocusBackgroundColor");
-  }
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -115,7 +91,7 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
     }
     setContentView(getResources().getIdentifier("capture_activity", "layout", getPackageName()));
 
-    handleSettings();
+    settings = getIntent().getExtras();
 
     // Create the bounding box
     surfaceView = findViewById(getResources().getIdentifier("overlay", "id", getPackageName()));
@@ -237,7 +213,7 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
         .setTargetAspectRatio(AspectRatio.RATIO_16_9)
         .build();
 
-    BarcodeAnalyzer barcodeAnalyzer = new BarcodeAnalyzer(barcodeFormats, this::processBarcodes, 5);
+    BarcodeAnalyzer barcodeAnalyzer = new BarcodeAnalyzer(settings.getInt(BARCODE_FORMATS), this::processBarcodes, settings.getInt(STABLE_THRESHOLD));
 
     imageAnalysis.setAnalyzer(executor, barcodeAnalyzer);
 
@@ -300,16 +276,16 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
       Canvas canvas = surfaceView.getHolder().lockCanvas();
       canvas.drawColor(0, PorterDuff.Mode.CLEAR);
 
-      if (drawFocusLine) {
-        drawFocusLine(canvas);
+      if (settings.getBoolean(DRAW_FOCUS_LINE)) {
+        drawFocusLine(canvas, settings.getString(FOCUS_LINE_COLOR), settings.getInt(FOCUS_LINE_THICKNESS));
       }
 
-      if (drawFocusRect) {
-        drawFocusRect(canvas);
+      if (settings.getBoolean(DRAW_FOCUS_RECT)) {
+        drawScanAreaOutline(canvas, settings.getString(FOCUS_RECT_COLOR), settings.getInt(FOCUS_RECT_BORDER_THICKNESS), settings.getInt(FOCUS_RECT_BORDER_RADIUS));
       }
 
-      if (drawFocusBackground) {
-        drawFocusBackground(canvas);
+      if (settings.getBoolean(DRAW_FOCUS_BACKGROUND)) {
+        drawFocusBackground(canvas, settings.getString(FOCUS_BACKGROUND_COLOR), settings.getInt(FOCUS_RECT_BORDER_RADIUS));
       }
 
       surfaceView.getHolder().unlockCanvasAndPost(canvas);
@@ -317,19 +293,22 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
   }
 
   /**
-   * Draws a rectangle around the scan area Border color and thickness are determined by config
+   * Draws a rectangle outline around the scan area Border color and thickness are determined by config
    *
    * @param canvas The canvas to draw on
+   * @param color Hexcolor String of the outline
+   * @param thickness thickness of the outline
+   * @param radius Corner radius
    */
-  private void drawFocusRect(Canvas canvas) {
+  private void drawScanAreaOutline(Canvas canvas, String color, int thickness, int radius) {
     // border's properties
     Paint paint = new Paint();
     paint.setStyle(Paint.Style.STROKE);
-    paint.setColor(Color.parseColor(focusRectColor));
-    paint.setStrokeWidth(focusRectBorderThickness);
+    paint.setColor(Color.parseColor(color));
+    paint.setStrokeWidth(thickness);
 
     canvas.drawRoundRect(calculateRectF(mCameraView.getHeight(), mCameraView.getWidth()),
-        focusRectBorderRadius, focusRectBorderRadius, paint);
+        radius, radius, paint);
   }
 
   /**
@@ -344,7 +323,7 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
   private RectF calculateRectF(int height, int width) {
     float rectAspectRatio = getAspectRatio();
 
-    float rectWidth = (float) (Math.min(height, width) * detectorSize);
+    float rectWidth = (float) (Math.min(height, width) * settings.getDouble(DETECTOR_SIZE));
     float rectHeight = rectWidth / rectAspectRatio;
 
     float offsetX = width - rectWidth;
@@ -364,6 +343,7 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
    * @return The calculated aspect ratio, or 1 in case of error
    */
   private float getAspectRatio() {
+    String detectorAspectRatio = settings.getString(DETECTOR_ASPECT_RATIO);
     if (detectorAspectRatio.contains(":")) {
       String[] parts = detectorAspectRatio.split(":");
       if (parts.length == 2) {
@@ -384,18 +364,20 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
    * config
    *
    * @param canvas The canvas to draw on
+   * @param color Hexcolor String of the line
+   * @param thickness thickness of the line
    */
-  private void drawFocusLine(Canvas canvas) {
+  private void drawFocusLine(Canvas canvas, String color, int thickness) {
     int height = mCameraView.getHeight();
     int width = mCameraView.getWidth();
 
     float lineWidth =
-        Math.min(height, width) - (float) ((1 - detectorSize) * Math.min(height, width));
+        Math.min(height, width) - (float) ((1 - settings.getDouble(DETECTOR_SIZE)) * Math.min(height, width));
 
     // border's properties
     Paint paint = new Paint();
-    paint.setColor(Color.parseColor(focusLineColor));
-    paint.setStrokeWidth(focusLineThickness);
+    paint.setColor(Color.parseColor(color));
+    paint.setStrokeWidth(thickness);
 
     float left = width / 2F - lineWidth / 2;
     float top = height / 2F;
@@ -409,14 +391,14 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
    * Fills out everything but the scan area. Color is determined by config
    *
    * @param canvas The canvas to draw on
+   * @param color Hexcolor String of the background (can be with alpha-channel)
+   * @param radius Corner radius
    */
-  private void drawFocusBackground(Canvas canvas) {
+  private void drawFocusBackground(Canvas canvas, String color, int radius) {
     Path path = new Path();
-    path.addRoundRect(calculateRectF(mCameraView.getHeight(), mCameraView.getWidth()),
-        focusRectBorderRadius, focusRectBorderRadius,
-        Path.Direction.CCW);
+    path.addRoundRect(calculateRectF(mCameraView.getHeight(), mCameraView.getWidth()), radius, radius, Path.Direction.CCW);
     canvas.clipOutPath(path);
-    canvas.drawColor(Color.parseColor(focusBackgroundColor));
+    canvas.drawColor(Color.parseColor(color));
   }
 
   // ----------------------------------------------------------------------------

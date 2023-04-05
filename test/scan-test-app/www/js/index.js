@@ -36,6 +36,7 @@ const options = {
   drawFocusBackground: false,
   focusBackgroundColor: "#66FFFFFF",
   rotateCamera: false,
+  stableThreshold: 5
 };
 
 function onSuccess(result) {
@@ -53,11 +54,16 @@ function onFail(result) {
 }
 
 function scan() {
-  const formData = new FormData(document.querySelector('form'));
-  
-  for (const pair of formData.entries()) {
-    const key = pair[0];
-    options[key] = pair[1];
+  for (const key in options) {
+    const element =  document.getElementById(key);
+    if (element) {
+      if (element.tagName === "INPUT" && element.type === "checkbox") {
+        options[key] = element.checked
+      }
+      else {
+        options[key] = element.value
+      }
+    }
   }
   
   cordova.plugins.mlkit.barcodeScanner.scan(options, onSuccess, onFail);
