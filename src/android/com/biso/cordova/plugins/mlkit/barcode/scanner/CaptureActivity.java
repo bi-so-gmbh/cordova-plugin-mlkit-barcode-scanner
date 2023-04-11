@@ -138,8 +138,7 @@ public class CaptureActivity extends AppCompatActivity {
         getResources().getIdentifier("previewView", "id", getPackageName()));
     previewView.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
 
-    boolean rotateCamera = settings.getBoolean(ROTATE_CAMERA);
-    if (rotateCamera) {
+    if (settings.getBoolean(ROTATE_CAMERA)) {
       previewView.setScaleX(-1F);
       previewView.setScaleY(-1F);
     } else {
