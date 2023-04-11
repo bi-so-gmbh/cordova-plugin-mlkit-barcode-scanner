@@ -1,16 +1,16 @@
 package com.biso.cordova.plugins.mlkit.barcode.scanner;
 
 import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.BARCODE_FORMATS;
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.DETECTOR_ASPECT_RATIO;
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.DETECTOR_SIZE;
 import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.ROTATE_CAMERA;
 import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.STABLE_THRESHOLD;
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Utils.calculateRectF;
+import static com.biso.cordova.plugins.mlkit.barcode.scanner.Utils.getTranslationMatrix;
 
 import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Matrix;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraManager;
@@ -25,6 +25,7 @@ import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.Preview;
+import androidx.camera.core.Preview.SurfaceProvider;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.constraintlayout.widget.ConstraintLayout;
@@ -50,11 +51,10 @@ public class CaptureActivity extends AppCompatActivity {
   public static final String BARCODE_VALUE = "MLKitBarcodeValue";
   public static final String DISTANCE_TO_CENTER = "distanceToCenter";
   private final ExecutorService executor = Executors.newSingleThreadExecutor();
-  private PreviewView mCameraView;
   private static final int RC_HANDLE_CAMERA_PERM = 2;
   private Camera camera;
   private Bundle settings;
-  private float aspectRatio;
+  private CameraOverlay cameraOverlay;
   private static final String[] PERMISSIONS = new String[]{Manifest.permission.CAMERA};
   private ImageAnalysis imageAnalysis;
 
@@ -73,11 +73,12 @@ public class CaptureActivity extends AppCompatActivity {
     }
 
     settings = getIntent().getExtras();
-    aspectRatio = Utils.getAspectRatioFromString(settings.getString(DETECTOR_ASPECT_RATIO));
 
     setContentView(getResources().getIdentifier("capture_activity", "layout", getPackageName()));
-    ConstraintLayout constraintLayout = findViewById(getResources().getIdentifier("topLayout", "id", getPackageName()));
-    constraintLayout.addView(new CameraOverlay(this, settings));
+    cameraOverlay = new CameraOverlay(this, settings);
+    ConstraintLayout constraintLayout = findViewById(
+        getResources().getIdentifier("topLayout", "id", getPackageName()));
+    constraintLayout.addView(cameraOverlay);
 
     if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
       startCamera();
@@ -133,23 +134,25 @@ public class CaptureActivity extends AppCompatActivity {
   }
 
   void startCamera() {
-    mCameraView = findViewById(getResources().getIdentifier("previewView", "id", getPackageName()));
-    mCameraView.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
+    PreviewView previewView = findViewById(
+        getResources().getIdentifier("previewView", "id", getPackageName()));
+    previewView.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
 
     boolean rotateCamera = settings.getBoolean(ROTATE_CAMERA);
     if (rotateCamera) {
-      mCameraView.setScaleX(-1F);
-      mCameraView.setScaleY(-1F);
+      previewView.setScaleX(-1F);
+      previewView.setScaleY(-1F);
     } else {
-      mCameraView.setScaleX(1F);
-      mCameraView.setScaleY(1F);
+      previewView.setScaleX(1F);
+      previewView.setScaleY(1F);
     }
 
     ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(
         this);
     cameraProviderFuture.addListener(() -> {
       try {
-        CaptureActivity.this.bindPreview(cameraProviderFuture.get());
+        CaptureActivity.this.bindPreview(cameraProviderFuture.get(),
+            previewView.getSurfaceProvider());
       } catch (ExecutionException | InterruptedException e) {
         // No errors need to be handled for this Future.
         // This should never be reached.
@@ -160,14 +163,14 @@ public class CaptureActivity extends AppCompatActivity {
   /**
    * Binding to camera
    */
-  private void bindPreview(ProcessCameraProvider cameraProvider) {
+  private void bindPreview(ProcessCameraProvider cameraProvider, SurfaceProvider surfaceProvider) {
     Preview preview = new Preview.Builder().build();
 
     CameraSelector cameraSelector = new CameraSelector.Builder().requireLensFacing(
             CameraSelector.LENS_FACING_BACK)
         .build();
 
-    preview.setSurfaceProvider(mCameraView.getSurfaceProvider());
+    preview.setSurfaceProvider(surfaceProvider);
 
     imageAnalysis = new ImageAnalysis.Builder()
         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
@@ -181,20 +184,16 @@ public class CaptureActivity extends AppCompatActivity {
     camera = cameraProvider.bindToLifecycle(this, cameraSelector, imageAnalysis, preview);
   }
 
-  public void processBarcodes(List<Barcode> detectedBarcodes, int width, int height, int rotation) {
+  public void processBarcodes(List<Barcode> detectedBarcodes, Rect imageBounds) {
     if (!detectedBarcodes.isEmpty()) {
       ArrayList<Bundle> barcodesInScanArea = new ArrayList<>();
-      RectF scanArea;
 
-      if (rotation == 90) {
-        scanArea = calculateRectF(width, height, settings.getDouble(DETECTOR_SIZE), aspectRatio);
-      } else {
-        scanArea = calculateRectF(height, width, settings.getDouble(DETECTOR_SIZE), aspectRatio);
-      }
+      Matrix matrix = getTranslationMatrix(new RectF(imageBounds), cameraOverlay.getSurfaceArea());
 
       for (Barcode barcode : detectedBarcodes) {
         RectF barcodeBounds = new RectF(barcode.getBoundingBox());
-        if (scanArea.contains(barcodeBounds)) {
+        matrix.mapRect(barcodeBounds);
+        if (cameraOverlay.getScanArea().contains(barcodeBounds)) {
           Bundle bundle = new Bundle();
           String value = barcode.getRawValue();
 
@@ -209,8 +208,9 @@ public class CaptureActivity extends AppCompatActivity {
           bundle.putInt(BARCODE_FORMAT, barcode.getFormat());
           bundle.putInt(BARCODE_TYPE, barcode.getValueType());
           bundle.putString(BARCODE_VALUE, value);
-          double distanceToCenter = Math.hypot(scanArea.centerX() - barcodeBounds.centerX(),
-              scanArea.centerY() - barcodeBounds.centerY());
+          double distanceToCenter = Math.hypot(
+              cameraOverlay.getScanArea().centerX() - barcodeBounds.centerX(),
+              cameraOverlay.getScanArea().centerY() - barcodeBounds.centerY());
           bundle.putDouble(DISTANCE_TO_CENTER, distanceToCenter);
 
           barcodesInScanArea.add(bundle);

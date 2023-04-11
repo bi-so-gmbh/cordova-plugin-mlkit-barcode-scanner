@@ -32,6 +32,7 @@ public class CameraOverlay extends SurfaceView implements Callback {
   private final Bundle settings;
   private final float aspectRatio;
   private RectF scanArea;
+  private RectF surfaceArea;
 
   public CameraOverlay(Context context, Bundle settings) {
     super(context);
@@ -50,7 +51,9 @@ public class CameraOverlay extends SurfaceView implements Callback {
 
   @Override
   public void surfaceChanged(SurfaceHolder surfaceHolder, int i, int i1, int i2) {
-    scanArea = calculateRectF(surfaceHolder.getSurfaceFrame().height(), surfaceHolder.getSurfaceFrame().width(),
+    surfaceArea = new RectF(surfaceHolder.getSurfaceFrame());
+    scanArea = calculateRectF(surfaceHolder.getSurfaceFrame().height(),
+        surfaceHolder.getSurfaceFrame().width(),
         settings.getDouble(DETECTOR_SIZE), aspectRatio);
 
     Canvas canvas = surfaceHolder.lockCanvas();
@@ -79,6 +82,10 @@ public class CameraOverlay extends SurfaceView implements Callback {
     return scanArea;
   }
 
+  public RectF getSurfaceArea() {
+    return surfaceArea;
+  }
+
   @Override
   public void surfaceDestroyed(SurfaceHolder surfaceHolder) {
     // intentionally empty
@@ -93,7 +100,6 @@ public class CameraOverlay extends SurfaceView implements Callback {
    * @param radius    Corner radius
    */
   private void drawScanAreaOutline(Canvas canvas, String color, int thickness, int radius) {
-    // border's properties
     Paint paint = new Paint();
     paint.setStyle(Paint.Style.STROKE);
     paint.setColor(Color.parseColor(color));

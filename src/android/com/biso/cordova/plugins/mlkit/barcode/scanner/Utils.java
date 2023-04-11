@@ -1,5 +1,7 @@
 package com.biso.cordova.plugins.mlkit.barcode.scanner;
 
+import android.graphics.Matrix;
+import android.graphics.Matrix.ScaleToFit;
 import android.graphics.RectF;
 
 public class Utils {
@@ -8,8 +10,8 @@ public class Utils {
    * Calculates a centered rectangle. Rectangle will be centered in the area defined by width x
    * height, have the aspect ratio and have a width of min(width, height) * scaleFactor
    *
-   * @param height height of the area that the rectangle will be centered in
-   * @param width  width of the area that the rectangle will be centered in
+   * @param height      height of the area that the rectangle will be centered in
+   * @param width       width of the area that the rectangle will be centered in
    * @param scaleFactor factor to scale the rectangle with
    * @param aspectRatio the intended aspect ratio of the rectangle
    * @return rectangle based on float values, centered in the area
@@ -50,6 +52,36 @@ public class Utils {
       }
     }
     return 1;
+  }
+
+  /**
+   * Takes a rectangle and returns a copy rotated by rotationAngle
+   *
+   * @param rectF         the rectangle to rotate
+   * @param rotationAngle the angle by which to rotate
+   * @return A RectF containing the rotated rectangle
+   */
+  public static RectF rotateRectF(RectF rectF, float rotationAngle) {
+    RectF rotated = new RectF(rectF);
+    Matrix matrix = new Matrix();
+    matrix.setRotate(rotationAngle, rectF.centerX(), rectF.centerY());
+    matrix.mapRect(rotated);
+
+    return rotated;
+  }
+
+  /**
+   * Generates a translation matrix that translates coordinates in the source rectangle to
+   * coordinates in the destination rectangle
+   *
+   * @param source      A RectF to use as a source
+   * @param destination The target RectF
+   * @return a translation matrix
+   */
+  public static Matrix getTranslationMatrix(RectF source, RectF destination) {
+    Matrix matrix = new Matrix();
+    matrix.setRectToRect(source, destination, ScaleToFit.FILL);
+    return matrix;
   }
 
   private Utils() {

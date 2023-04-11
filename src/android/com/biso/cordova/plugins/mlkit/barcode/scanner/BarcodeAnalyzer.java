@@ -17,19 +17,22 @@ import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 
 public class BarcodeAnalyzer implements Analyzer {
+
   List<Barcode> lastBarcodes;
   int stableCounter = 0;
   final int stableThreshold;
   final BarcodeScanner scanner;
   final BarcodesListener barcodesListener;
 
-  public BarcodeAnalyzer(int barcodeFormats, BarcodesListener barcodesListener, int stableThreshold) {
+  public BarcodeAnalyzer(int barcodeFormats, BarcodesListener barcodesListener,
+      int stableThreshold) {
     int useBarcodeFormats = barcodeFormats;
     if (useBarcodeFormats == 0 || useBarcodeFormats == 1234) {
       useBarcodeFormats = (Barcode.FORMAT_CODE_39 | Barcode.FORMAT_DATA_MATRIX);
     }
     scanner = BarcodeScanning
-        .getClient(new BarcodeScannerOptions.Builder().setBarcodeFormats(useBarcodeFormats).build());
+        .getClient(
+            new BarcodeScannerOptions.Builder().setBarcodeFormats(useBarcodeFormats).build());
     this.barcodesListener = barcodesListener;
     this.lastBarcodes = new ArrayList<>();
     this.stableThreshold = stableThreshold;
@@ -50,9 +53,8 @@ public class BarcodeAnalyzer implements Analyzer {
     try {
       List<Barcode> barcodes = Tasks.await(scannerTask);
 
-      if(barcodesStable(barcodes) && stableCounter >= stableThreshold) {
-        barcodesListener.onBarcodesFound(barcodes, inputImage.getWidth(), inputImage.getHeight(),
-            inputImage.getRotationDegrees());
+      if (barcodesStable(barcodes) && stableCounter >= stableThreshold) {
+        barcodesListener.onBarcodesFound(barcodes, imageProxy.getCropRect());
       }
     } catch (ExecutionException | InterruptedException e) {
       Log.e("analyzing", e.getMessage());
