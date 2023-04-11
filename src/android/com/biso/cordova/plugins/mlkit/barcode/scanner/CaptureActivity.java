@@ -3,34 +3,19 @@ package com.biso.cordova.plugins.mlkit.barcode.scanner;
 import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.BARCODE_FORMATS;
 import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.DETECTOR_ASPECT_RATIO;
 import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.DETECTOR_SIZE;
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.DRAW_FOCUS_BACKGROUND;
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.DRAW_FOCUS_LINE;
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.DRAW_FOCUS_RECT;
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.FOCUS_BACKGROUND_COLOR;
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.FOCUS_LINE_COLOR;
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.FOCUS_LINE_THICKNESS;
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.FOCUS_RECT_BORDER_RADIUS;
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.FOCUS_RECT_BORDER_THICKNESS;
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.FOCUS_RECT_COLOR;
+import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.ROTATE_CAMERA;
 import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.STABLE_THRESHOLD;
+import static com.biso.cordova.plugins.mlkit.barcode.scanner.Utils.calculateRectF;
 
 import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.PixelFormat;
-import android.graphics.PorterDuff;
 import android.graphics.RectF;
-import android.graphics.Path;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraManager;
 import android.os.Bundle;
 
-import android.view.SurfaceHolder;
-import android.view.SurfaceView;
 import android.widget.ImageButton;
 
 import androidx.annotation.NonNull;
@@ -42,6 +27,7 @@ import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
+import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LiveData;
 
@@ -57,7 +43,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.Callback {
+public class CaptureActivity extends AppCompatActivity {
 
   public static final String BARCODE_FORMAT = "MLKitBarcodeFormat";
   public static final String BARCODE_TYPE = "MLKitBarcodeType";
@@ -65,11 +51,12 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
   public static final String DISTANCE_TO_CENTER = "distanceToCenter";
   private final ExecutorService executor = Executors.newSingleThreadExecutor();
   private PreviewView mCameraView;
-  private SurfaceView surfaceView;
   private static final int RC_HANDLE_CAMERA_PERM = 2;
   private Camera camera;
   private Bundle settings;
+  private float aspectRatio;
   private static final String[] PERMISSIONS = new String[]{Manifest.permission.CAMERA};
+  private ImageAnalysis imageAnalysis;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -77,23 +64,20 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
 
     CameraManager cameraManager = (CameraManager) this.getSystemService(Context.CAMERA_SERVICE);
     try {
-      if(!getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY) || cameraManager.getCameraIdList().length == 0) {
+      if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)
+          || cameraManager.getCameraIdList().length == 0) {
         finishWithError("NO_CAMERA");
       }
     } catch (CameraAccessException e) {
       finishWithError("NO_CAMERA");
     }
-    setContentView(getResources().getIdentifier("capture_activity", "layout", getPackageName()));
 
     settings = getIntent().getExtras();
+    aspectRatio = Utils.getAspectRatioFromString(settings.getString(DETECTOR_ASPECT_RATIO));
 
-    // Create the bounding box
-    surfaceView = findViewById(getResources().getIdentifier("overlay", "id", getPackageName()));
-    surfaceView.setZOrderOnTop(true);
-
-    SurfaceHolder holder = surfaceView.getHolder();
-    holder.setFormat(PixelFormat.TRANSPARENT);
-    holder.addCallback(this);
+    setContentView(getResources().getIdentifier("capture_activity", "layout", getPackageName()));
+    ConstraintLayout constraintLayout = findViewById(getResources().getIdentifier("topLayout", "id", getPackageName()));
+    constraintLayout.addView(new CameraOverlay(this, settings));
 
     if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
       startCamera();
@@ -102,7 +86,7 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
     }
 
     ImageButton torchButton = findViewById(
-        getResources().getIdentifier("torch_button", "id", this.getPackageName()));
+        getResources().getIdentifier("torch_button", "id", getPackageName()));
 
     torchButton.setOnClickListener(v -> {
       LiveData<Integer> flashState = camera.getCameraInfo().getTorchState();
@@ -130,25 +114,21 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
     }
   }
 
-  @Override
-  public void surfaceCreated(SurfaceHolder surfaceHolder) {
-    //intentionally empty
-  }
-
-  @Override
-  public void surfaceChanged(SurfaceHolder surfaceHolder, int i, int i1, int i2) {
-    drawFocus();
-  }
-
-  @Override
-  public void surfaceDestroyed(SurfaceHolder surfaceHolder) {
-    // intentionally empty
-  }
-
   private void finishWithError(String errorMessage) {
     Intent result = new Intent();
     result.putExtra("error", errorMessage);
     setResult(CommonStatusCodes.ERROR, result);
+    if (imageAnalysis != null) {
+      imageAnalysis.clearAnalyzer();
+    }
+    finish();
+  }
+
+  private void finishWithSuccess(Intent data) {
+    setResult(CommonStatusCodes.SUCCESS, data);
+    if (imageAnalysis != null) {
+      imageAnalysis.clearAnalyzer();
+    }
     finish();
   }
 
@@ -156,7 +136,7 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
     mCameraView = findViewById(getResources().getIdentifier("previewView", "id", getPackageName()));
     mCameraView.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
 
-    boolean rotateCamera = getIntent().getBooleanExtra("RotateCamera", false);
+    boolean rotateCamera = settings.getBoolean(ROTATE_CAMERA);
     if (rotateCamera) {
       mCameraView.setScaleX(-1F);
       mCameraView.setScaleY(-1F);
@@ -169,9 +149,7 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
         this);
     cameraProviderFuture.addListener(() -> {
       try {
-        ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
-        CaptureActivity.this.bindPreview(cameraProvider);
-
+        CaptureActivity.this.bindPreview(cameraProviderFuture.get());
       } catch (ExecutionException | InterruptedException e) {
         // No errors need to be handled for this Future.
         // This should never be reached.
@@ -191,14 +169,14 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
 
     preview.setSurfaceProvider(mCameraView.getSurfaceProvider());
 
-    ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
+    imageAnalysis = new ImageAnalysis.Builder()
         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
         .setTargetAspectRatio(AspectRatio.RATIO_16_9)
         .build();
 
-    BarcodeAnalyzer barcodeAnalyzer = new BarcodeAnalyzer(settings.getInt(BARCODE_FORMATS), this::processBarcodes, settings.getInt(STABLE_THRESHOLD));
-
-    imageAnalysis.setAnalyzer(executor, barcodeAnalyzer);
+    imageAnalysis.setAnalyzer(executor,
+        new BarcodeAnalyzer(settings.getInt(BARCODE_FORMATS), this::processBarcodes,
+            settings.getInt(STABLE_THRESHOLD)));
 
     camera = cameraProvider.bindToLifecycle(this, cameraSelector, imageAnalysis, preview);
   }
@@ -209,9 +187,9 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
       RectF scanArea;
 
       if (rotation == 90) {
-        scanArea = calculateRectF(width, height);
+        scanArea = calculateRectF(width, height, settings.getDouble(DETECTOR_SIZE), aspectRatio);
       } else {
-        scanArea = calculateRectF(height, width);
+        scanArea = calculateRectF(height, width, settings.getDouble(DETECTOR_SIZE), aspectRatio);
       }
 
       for (Barcode barcode : detectedBarcodes) {
@@ -243,144 +221,8 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
         Intent data = new Intent();
         barcodesInScanArea.sort(Comparator.comparingDouble(b -> b.getDouble(DISTANCE_TO_CENTER)));
         data.putParcelableArrayListExtra("barcodes", barcodesInScanArea);
-        setResult(CommonStatusCodes.SUCCESS, data);
-
-        finish();
+        finishWithSuccess(data);
       }
     }
-  }
-
-
-  /**
-   * Draws the overlay over the camera preview
-   */
-  private void drawFocus() {
-    if (mCameraView != null) {
-      Canvas canvas = surfaceView.getHolder().lockCanvas();
-      canvas.drawColor(0, PorterDuff.Mode.CLEAR);
-
-      if (settings.getBoolean(DRAW_FOCUS_LINE)) {
-        drawFocusLine(canvas, settings.getString(FOCUS_LINE_COLOR), settings.getInt(FOCUS_LINE_THICKNESS));
-      }
-
-      if (settings.getBoolean(DRAW_FOCUS_RECT)) {
-        drawScanAreaOutline(canvas, settings.getString(FOCUS_RECT_COLOR), settings.getInt(FOCUS_RECT_BORDER_THICKNESS), settings.getInt(FOCUS_RECT_BORDER_RADIUS));
-      }
-
-      if (settings.getBoolean(DRAW_FOCUS_BACKGROUND)) {
-        drawFocusBackground(canvas, settings.getString(FOCUS_BACKGROUND_COLOR), settings.getInt(FOCUS_RECT_BORDER_RADIUS));
-      }
-
-      surfaceView.getHolder().unlockCanvasAndPost(canvas);
-    }
-  }
-
-  /**
-   * Draws a rectangle outline around the scan area Border color and thickness are determined by config
-   *
-   * @param canvas The canvas to draw on
-   * @param color Hexcolor String of the outline
-   * @param thickness thickness of the outline
-   * @param radius Corner radius
-   */
-  private void drawScanAreaOutline(Canvas canvas, String color, int thickness, int radius) {
-    // border's properties
-    Paint paint = new Paint();
-    paint.setStyle(Paint.Style.STROKE);
-    paint.setColor(Color.parseColor(color));
-    paint.setStrokeWidth(thickness);
-
-    canvas.drawRoundRect(calculateRectF(mCameraView.getHeight(), mCameraView.getWidth()),
-        radius, radius, paint);
-  }
-
-  /**
-   * Calculates a centered rectangle. Rectangle will: - be centered in the area defined by width x
-   * height, - have the aspect ratio set in the config - have a width of min(width, height) *
-   * detectorSize set in config
-   *
-   * @param height height of the area that the rectangle will be centered in
-   * @param width  width of the area that the rectangle will be centered in
-   * @return rectangle based on float values, centered in the area
-   */
-  private RectF calculateRectF(int height, int width) {
-    float rectAspectRatio = getAspectRatio();
-
-    float rectWidth = (float) (Math.min(height, width) * settings.getDouble(DETECTOR_SIZE));
-    float rectHeight = rectWidth / rectAspectRatio;
-
-    float offsetX = width - rectWidth;
-    float offsetY = height - rectHeight;
-
-    float left = offsetX / 2;
-    float top = offsetY / 2;
-    float right = left + rectWidth;
-    float bottom = top + rectHeight;
-
-    return new RectF(left, top, right, bottom);
-  }
-
-  /**
-   * Takes the aspect ratio from the config (which is a String) and turns it into a number.
-   *
-   * @return The calculated aspect ratio, or 1 in case of error
-   */
-  private float getAspectRatio() {
-    String detectorAspectRatio = settings.getString(DETECTOR_ASPECT_RATIO);
-    if (detectorAspectRatio.contains(":")) {
-      String[] parts = detectorAspectRatio.split(":");
-      if (parts.length == 2) {
-        try {
-          float left = Integer.parseInt(parts[0]);
-          float right = Integer.parseInt(parts[1]);
-          return (left / right);
-        } catch (NumberFormatException e) {
-          // do nothing
-        }
-      }
-    }
-    return 1;
-  }
-
-  /**
-   * Draws a line through the center of the scan area. Color and line thickness are determined by
-   * config
-   *
-   * @param canvas The canvas to draw on
-   * @param color Hexcolor String of the line
-   * @param thickness thickness of the line
-   */
-  private void drawFocusLine(Canvas canvas, String color, int thickness) {
-    int height = mCameraView.getHeight();
-    int width = mCameraView.getWidth();
-
-    float lineWidth =
-        Math.min(height, width) - (float) ((1 - settings.getDouble(DETECTOR_SIZE)) * Math.min(height, width));
-
-    // border's properties
-    Paint paint = new Paint();
-    paint.setColor(Color.parseColor(color));
-    paint.setStrokeWidth(thickness);
-
-    float left = width / 2F - lineWidth / 2;
-    float top = height / 2F;
-    float right = width / 2F + lineWidth / 2;
-    float bottom = height / 2F;
-
-    canvas.drawLine(left, top, right, bottom, paint);
-  }
-
-  /**
-   * Fills out everything but the scan area. Color is determined by config
-   *
-   * @param canvas The canvas to draw on
-   * @param color Hexcolor String of the background (can be with alpha-channel)
-   * @param radius Corner radius
-   */
-  private void drawFocusBackground(Canvas canvas, String color, int radius) {
-    Path path = new Path();
-    path.addRoundRect(calculateRectF(mCameraView.getHeight(), mCameraView.getWidth()), radius, radius, Path.Direction.CCW);
-    canvas.clipOutPath(path);
-    canvas.drawColor(Color.parseColor(color));
   }
 }
