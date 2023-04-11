@@ -29,9 +29,6 @@ import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraManager;
 import android.os.Bundle;
 
-import android.view.GestureDetector;
-import android.view.MotionEvent;
-import android.view.ScaleGestureDetector;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.widget.ImageButton;
@@ -71,9 +68,6 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
   private SurfaceView surfaceView;
   private static final int RC_HANDLE_CAMERA_PERM = 2;
   private Camera camera;
-  private ScaleGestureDetector scaleGestureDetector;
-  private GestureDetector gestureDetector;
-
   private Bundle settings;
   private static final String[] PERMISSIONS = new String[]{Manifest.permission.CAMERA};
 
@@ -106,9 +100,6 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
     } else {
       requestPermissions(PERMISSIONS, RC_HANDLE_CAMERA_PERM);
     }
-
-    gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener());
-    scaleGestureDetector = new ScaleGestureDetector(this, new ScaleListener());
 
     ImageButton torchButton = findViewById(
         getResources().getIdentifier("torch_button", "id", this.getPackageName()));
@@ -152,14 +143,6 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
   @Override
   public void surfaceDestroyed(SurfaceHolder surfaceHolder) {
     // intentionally empty
-  }
-
-  @Override
-  public boolean onTouchEvent(MotionEvent e) {
-    boolean b = scaleGestureDetector.onTouchEvent(e);
-    boolean c = gestureDetector.onTouchEvent(e);
-
-    return b || c || super.onTouchEvent(e);
   }
 
   private void finishWithError(String errorMessage) {
@@ -399,31 +382,5 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
     path.addRoundRect(calculateRectF(mCameraView.getHeight(), mCameraView.getWidth()), radius, radius, Path.Direction.CCW);
     canvas.clipOutPath(path);
     canvas.drawColor(Color.parseColor(color));
-  }
-
-  // ----------------------------------------------------------------------------
-  // | Helper classes
-  // ----------------------------------------------------------------------------
-
-  private class ScaleListener implements ScaleGestureDetector.OnScaleGestureListener {
-
-    @Override
-    public boolean onScale(ScaleGestureDetector detector) {
-      return false;
-    }
-
-    @Override
-    public boolean onScaleBegin(ScaleGestureDetector detector) {
-      return true;
-    }
-
-    @Override
-    public void onScaleEnd(ScaleGestureDetector detector) {
-      if (camera != null && camera.getCameraInfo().getZoomState().getValue() != null) {
-        float scale = camera.getCameraInfo().getZoomState().getValue().getZoomRatio()
-            * detector.getScaleFactor();
-        camera.getCameraControl().setZoomRatio(scale);
-      }
-    }
   }
 }
