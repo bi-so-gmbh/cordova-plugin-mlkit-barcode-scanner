@@ -106,7 +106,7 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
     intent.putExtra(Settings.DETECTOR_ASPECT_RATIO,
         config.optString(Settings.DETECTOR_ASPECT_RATIO, "1:1"));
     double detectorSize = config.optDouble(DETECTOR_SIZE, 0.5);
-    if (detectorSize <= 0 || detectorSize >= 1) {
+    if (detectorSize <= 0 || detectorSize > 1) {
       // setting boundary detectorSize must be between 0 and 1.
       detectorSize = 0.5;
     }
