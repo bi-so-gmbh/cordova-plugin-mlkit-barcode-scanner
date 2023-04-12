@@ -140,10 +140,10 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
           ArrayList<Bundle> barcodes = data.getParcelableArrayListExtra("barcodes");
           JSONArray resultBarcodes = new JSONArray();
           for (Bundle barcode : barcodes) {
-            Integer barcodeFormat = barcode.getInt(CaptureActivity.BARCODE_FORMAT);
-            Integer barcodeType = barcode.getInt(CaptureActivity.BARCODE_TYPE);
-            Double distanceToCenter = barcode.getDouble(CaptureActivity.DISTANCE_TO_CENTER);
-            String barcodeValue = barcode.getString(CaptureActivity.BARCODE_VALUE);
+            Integer barcodeFormat = barcode.getInt(BarcodeAnalyzer.BARCODE_FORMAT);
+            Integer barcodeType = barcode.getInt(BarcodeAnalyzer.BARCODE_TYPE);
+            Double distanceToCenter = barcode.getDouble(BarcodeAnalyzer.DISTANCE_TO_CENTER);
+            String barcodeValue = barcode.getString(BarcodeAnalyzer.BARCODE_VALUE);
 
             JSONArray result = new JSONArray();
             result.put(barcodeValue);

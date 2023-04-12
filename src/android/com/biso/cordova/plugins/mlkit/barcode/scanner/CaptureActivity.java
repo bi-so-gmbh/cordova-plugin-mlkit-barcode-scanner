@@ -3,21 +3,15 @@ package com.biso.cordova.plugins.mlkit.barcode.scanner;
 import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.BARCODE_FORMATS;
 import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.ROTATE_CAMERA;
 import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.STABLE_THRESHOLD;
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Utils.getTranslationMatrix;
 
 import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.graphics.Matrix;
-import android.graphics.Rect;
-import android.graphics.RectF;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraManager;
 import android.os.Bundle;
-
 import android.widget.ImageButton;
-
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.AspectRatio;
@@ -31,25 +25,14 @@ import androidx.camera.view.PreviewView;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LiveData;
-
 import com.google.android.gms.common.api.CommonStatusCodes;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.mlkit.vision.barcode.common.Barcode;
-
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class CaptureActivity extends AppCompatActivity {
 
-  public static final String BARCODE_FORMAT = "MLKitBarcodeFormat";
-  public static final String BARCODE_TYPE = "MLKitBarcodeType";
-  public static final String BARCODE_VALUE = "MLKitBarcodeValue";
-  public static final String DISTANCE_TO_CENTER = "distanceToCenter";
   private final ExecutorService executor = Executors.newSingleThreadExecutor();
   private static final int RC_HANDLE_CAMERA_PERM = 2;
   private Camera camera;
@@ -177,51 +160,11 @@ public class CaptureActivity extends AppCompatActivity {
         .build();
 
     imageAnalysis.setAnalyzer(executor,
-        new BarcodeAnalyzer(settings.getInt(BARCODE_FORMATS), this::processBarcodes,
-            settings.getInt(STABLE_THRESHOLD)));
+        new BarcodeAnalyzer(settings.getInt(BARCODE_FORMATS),
+            settings.getInt(STABLE_THRESHOLD), this::finishWithSuccess, cameraOverlay));
 
     camera = cameraProvider.bindToLifecycle(this, cameraSelector, imageAnalysis, preview);
   }
 
-  public void processBarcodes(List<Barcode> detectedBarcodes, Rect imageBounds) {
-    if (!detectedBarcodes.isEmpty()) {
-      ArrayList<Bundle> barcodesInScanArea = new ArrayList<>();
 
-      Matrix matrix = getTranslationMatrix(new RectF(imageBounds), cameraOverlay.getSurfaceArea());
-
-      for (Barcode barcode : detectedBarcodes) {
-        RectF barcodeBounds = new RectF(barcode.getBoundingBox());
-        matrix.mapRect(barcodeBounds);
-        if (cameraOverlay.getScanArea().contains(barcodeBounds)) {
-          Bundle bundle = new Bundle();
-          String value = barcode.getRawValue();
-
-          // rawValue returns null if string is not UTF-8 encoded.
-          // If that's the case, we will decode it as ASCII,
-          // because it's the most common encoding for barcodes.
-          // e.g. https://www.barcodefaq.com/1d/code-128/
-          if (value == null) {
-            value = new String(barcode.getRawBytes(), StandardCharsets.US_ASCII);
-          }
-
-          bundle.putInt(BARCODE_FORMAT, barcode.getFormat());
-          bundle.putInt(BARCODE_TYPE, barcode.getValueType());
-          bundle.putString(BARCODE_VALUE, value);
-          double distanceToCenter = Math.hypot(
-              cameraOverlay.getScanArea().centerX() - barcodeBounds.centerX(),
-              cameraOverlay.getScanArea().centerY() - barcodeBounds.centerY());
-          bundle.putDouble(DISTANCE_TO_CENTER, distanceToCenter);
-
-          barcodesInScanArea.add(bundle);
-        }
-      }
-
-      if (!barcodesInScanArea.isEmpty()) {
-        Intent data = new Intent();
-        barcodesInScanArea.sort(Comparator.comparingDouble(b -> b.getDouble(DISTANCE_TO_CENTER)));
-        data.putParcelableArrayListExtra("barcodes", barcodesInScanArea);
-        finishWithSuccess(data);
-      }
-    }
-  }
 }

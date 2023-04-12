@@ -26,6 +26,7 @@ import android.os.Bundle;
 import android.view.SurfaceHolder;
 import android.view.SurfaceHolder.Callback;
 import android.view.SurfaceView;
+import java.util.List;
 
 public class CameraOverlay extends SurfaceView implements Callback {
 
@@ -59,21 +60,7 @@ public class CameraOverlay extends SurfaceView implements Callback {
     Canvas canvas = surfaceHolder.lockCanvas();
     canvas.drawColor(0, PorterDuff.Mode.CLEAR);
 
-    if (settings.getBoolean(DRAW_FOCUS_LINE)) {
-      drawFocusLine(canvas, settings.getString(FOCUS_LINE_COLOR),
-          settings.getInt(FOCUS_LINE_THICKNESS));
-    }
-
-    if (settings.getBoolean(DRAW_FOCUS_RECT)) {
-      drawScanAreaOutline(canvas, settings.getString(FOCUS_RECT_COLOR),
-          settings.getInt(FOCUS_RECT_BORDER_THICKNESS),
-          settings.getInt(FOCUS_RECT_BORDER_RADIUS));
-    }
-
-    if (settings.getBoolean(DRAW_FOCUS_BACKGROUND)) {
-      drawFocusBackground(canvas, settings.getString(FOCUS_BACKGROUND_COLOR),
-          settings.getInt(FOCUS_RECT_BORDER_RADIUS));
-    }
+    drawScanArea(canvas);
 
     surfaceHolder.unlockCanvasAndPost(canvas);
   }
@@ -89,6 +76,24 @@ public class CameraOverlay extends SurfaceView implements Callback {
   @Override
   public void surfaceDestroyed(SurfaceHolder surfaceHolder) {
     // intentionally empty
+  }
+
+  private void drawScanArea(Canvas canvas) {
+    if (settings.getBoolean(DRAW_FOCUS_LINE)) {
+      drawFocusLine(canvas, settings.getString(FOCUS_LINE_COLOR),
+          settings.getInt(FOCUS_LINE_THICKNESS));
+    }
+
+    if (settings.getBoolean(DRAW_FOCUS_RECT)) {
+      drawScanAreaOutline(canvas, settings.getString(FOCUS_RECT_COLOR),
+          settings.getInt(FOCUS_RECT_BORDER_THICKNESS),
+          settings.getInt(FOCUS_RECT_BORDER_RADIUS));
+    }
+
+    if (settings.getBoolean(DRAW_FOCUS_BACKGROUND)) {
+      drawFocusBackground(canvas, settings.getString(FOCUS_BACKGROUND_COLOR),
+          settings.getInt(FOCUS_RECT_BORDER_RADIUS));
+    }
   }
 
   /**
@@ -136,5 +141,26 @@ public class CameraOverlay extends SurfaceView implements Callback {
         radius, Path.Direction.CCW);
     canvas.clipOutPath(path);
     canvas.drawColor(Color.parseColor(color));
+  }
+
+  public void drawDetectedBarcodesOutlines(List<RectF> barcodeOutlines) {
+    Canvas canvas = this.getHolder().lockCanvas();
+    canvas.drawColor(0, PorterDuff.Mode.CLEAR);
+
+    Paint paint = new Paint();
+    paint.setStyle(Paint.Style.STROKE);
+    paint.setStrokeWidth(5);
+
+    for(RectF outline: barcodeOutlines) {
+      paint.setColor(Color.parseColor("#0000FF"));
+      canvas.drawRoundRect(outline, 0, 0, paint);
+
+      paint.setColor(Color.parseColor("#FF0000"));
+      canvas.drawLine(outline.left, outline.centerY(), outline.right, outline.centerY(), paint);
+    }
+
+    drawScanArea(canvas);
+
+    getHolder().unlockCanvasAndPost(canvas);
   }
 }
