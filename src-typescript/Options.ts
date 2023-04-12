@@ -32,5 +32,6 @@ export const defaultOptions: Required<IOptions> = Object.freeze({
   drawFocusBackground: false,
   focusBackgroundColor: "#66FFFFFF",
   rotateCamera: false,
-  stableThreshold: 5
+  stableThreshold: 5,
+  debugOverlay: false
 });

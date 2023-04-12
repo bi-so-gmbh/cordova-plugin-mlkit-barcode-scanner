@@ -36,7 +36,8 @@ const options = {
   drawFocusBackground: false,
   focusBackgroundColor: "#66FFFFFF",
   rotateCamera: false,
-  stableThreshold: 5
+  stableThreshold: 5,
+  debugOverlay: false
 };
 
 function onSuccess(result) {

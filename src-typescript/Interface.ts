@@ -31,6 +31,7 @@ export interface IOptions {
   focusBackgroundColor?: string;
   rotateCamera?: boolean;
   stableThreshold?: number;
+  debugOverlay?: boolean;
 }
 
 export interface IConfig {
@@ -50,6 +51,7 @@ export interface IConfig {
   focusBackgroundColor?: string;
   rotateCamera?: boolean;
   stableThreshold?: number;
+  debugOverlay?: boolean;
 }
 
 export interface IResult {
