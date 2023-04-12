@@ -33,19 +33,23 @@
     "/www/**/*.{js,js.map,d.ts}",
     "/plugin.xml"
   ],
+  "eslintConfig": {
+    "parser": "@typescript-eslint/parser"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/bi-so-gmbh/cordova-plugin-mlkit-barcode-scanner.git"
   },
   "homepage": "https://github.com/bi-so-gmbh/cordova-plugin-mlkit-barcode-scanner#readme",
   "devDependencies": {
-    "@rollup/plugin-commonjs": "20.0.0",
-    "@rollup/plugin-node-resolve": "13.0.4",
-    "@types/cordova": "0.0.34",
-    "@types/node": "16.7.1",
-    "eslint": "7.32.0",
-    "rollup": "2.56.3",
-    "rollup-plugin-typescript2": "0.30.0",
-    "tslib": "2.3.1"
+    "@rollup/plugin-commonjs": "^24.1.0",
+    "@rollup/plugin-node-resolve": "^15.0.2",
+    "@types/cordova": "^11.0.0",
+    "@types/node": "^18.15.11",
+    "@typescript-eslint/parser": "^5.58.0",
+    "eslint": "^8.38.0",
+    "rollup": "^2.77.2",
+    "rollup-plugin-typescript2": "^0.34.1",
+    "tslib": "^2.3.1"
   }
 }
