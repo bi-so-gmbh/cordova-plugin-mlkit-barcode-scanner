@@ -4,6 +4,7 @@ import android.graphics.Matrix;
 import android.graphics.Matrix.ScaleToFit;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.util.Pair;
 
 public class Utils {
 
@@ -102,12 +103,12 @@ public class Utils {
    *
    * @param rect   rect to map
    * @param matrix matrix that does the mapping
-   * @return RectF object containing the mapped rectangle
+   * @return a Pair with the RectF as 1st parameter and a Boolean with orientation information as 2nd
    */
-  public static RectF mapRect(Rect rect, Matrix matrix) {
+  public static Pair<RectF, Boolean> mapRect(Rect rect, Matrix matrix) {
     RectF rectF = new RectF(rect);
     matrix.mapRect(rectF);
-    return rectF;
+    return new Pair<>(rectF, rect.height() > rect.width());
   }
 
   private Utils() {

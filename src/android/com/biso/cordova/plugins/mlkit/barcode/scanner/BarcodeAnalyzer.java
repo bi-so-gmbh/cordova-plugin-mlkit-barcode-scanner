@@ -13,6 +13,7 @@ import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.util.Log;
+import android.util.Pair;
 import androidx.annotation.NonNull;
 import androidx.camera.core.ImageAnalysis.Analyzer;
 import androidx.camera.core.ImageProxy;
@@ -35,7 +36,7 @@ public class BarcodeAnalyzer implements Analyzer {
 
   public static final String BARCODES = "barcodes";
   private static final String ANALYZER = "BarcodeAnalyzer";
-  private HashSet<DetectedBarcode> lastBarcodes;
+  private List<DetectedBarcode> lastBarcodes;
   private int stableCounter = 0;
   private final BarcodeScanner scanner;
   private final CameraOverlay cameraOverlay;
@@ -52,7 +53,7 @@ public class BarcodeAnalyzer implements Analyzer {
         .getClient(
             new BarcodeScannerOptions.Builder().setBarcodeFormats(useBarcodeFormats).build());
     this.settings = settings;
-    this.lastBarcodes = new HashSet<>();
+    this.lastBarcodes = new ArrayList<>();
     this.barcodesListener = barcodesListener;
     this.cameraOverlay = cameraOverlay;
   }
@@ -98,6 +99,9 @@ public class BarcodeAnalyzer implements Analyzer {
           Intent data = new Intent();
           data.putParcelableArrayListExtra(BARCODES, barcodesInScanArea);
           barcodesListener.onBarcodesFound(data);
+        } else {
+          stableCounter = 0;
+          lastBarcodes = new ArrayList<>();
         }
       }
     } catch (ExecutionException e) {
@@ -111,13 +115,13 @@ public class BarcodeAnalyzer implements Analyzer {
 
   private boolean areBarcodesStable(List<DetectedBarcode> barcodes) {
     if (!barcodes.isEmpty() && (barcodes.size() == lastBarcodes.size())
-        && (lastBarcodes.containsAll(barcodes))) {
+        && (new HashSet<>(lastBarcodes).containsAll(barcodes))) {
       stableCounter++;
       Log.d(ANALYZER,
           "barcodes stable for " + stableCounter + "/" + settings.getInt(STABLE_THRESHOLD));
       return true;
     }
-    lastBarcodes = new HashSet<>(barcodes);
+    lastBarcodes = barcodes;
     stableCounter = 0;
     return false;
   }
@@ -129,13 +133,15 @@ public class BarcodeAnalyzer implements Analyzer {
     private final int format;
     private final int type;
     private final double distanceToCenter;
+    private final boolean isPortrait;
 
-    public DetectedBarcode(@NonNull Barcode barcode, @NonNull RectF bounds, float centerX,
+    public DetectedBarcode(@NonNull Barcode barcode, @NonNull Pair<RectF, Boolean> boundsAndOrientation, float centerX,
         float centerY) {
       format = barcode.getFormat();
       type = barcode.getValueType();
       value = barcode.getRawValue();
-      this.bounds = bounds;
+      this.bounds = boundsAndOrientation.first;
+      this.isPortrait = boundsAndOrientation.second;
 
       // rawValue returns null if string is not UTF-8 encoded.
       // If that's the case, we will decode it as ASCII,
@@ -155,10 +161,11 @@ public class BarcodeAnalyzer implements Analyzer {
       type = in.readInt();
       distanceToCenter = in.readDouble();
       bounds = in.readTypedObject(RectF.CREATOR);
+      isPortrait = in.readBoolean();
     }
 
     public boolean isInScanArea(RectF scanArea) {
-      if (bounds == null || bounds.height() > bounds.width()) {
+      if (isPortrait) {
         return false;
       }
 
@@ -226,7 +233,7 @@ public class BarcodeAnalyzer implements Analyzer {
 
     @Override
     public int describeContents() {
-      return 0;
+      return hashCode();
     }
 
     @Override
@@ -236,6 +243,7 @@ public class BarcodeAnalyzer implements Analyzer {
       out.writeInt(type);
       out.writeDouble(distanceToCenter);
       out.writeTypedObject(bounds, Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
+      out.writeBoolean(isPortrait);
     }
 
     public static final Parcelable.Creator<DetectedBarcode> CREATOR = new Parcelable.Creator<DetectedBarcode>() {
