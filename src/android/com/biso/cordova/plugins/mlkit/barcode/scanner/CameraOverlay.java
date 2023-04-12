@@ -26,6 +26,7 @@ import android.os.Bundle;
 import android.view.SurfaceHolder;
 import android.view.SurfaceHolder.Callback;
 import android.view.SurfaceView;
+import com.biso.cordova.plugins.mlkit.barcode.scanner.BarcodeAnalyzer.DetectedBarcode;
 import java.util.List;
 
 public class CameraOverlay extends SurfaceView implements Callback {
@@ -143,24 +144,30 @@ public class CameraOverlay extends SurfaceView implements Callback {
     canvas.drawColor(Color.parseColor(color));
   }
 
-  public void drawDetectedBarcodesOutlines(List<RectF> barcodeOutlines) {
+  public void drawDebugOverlay(List<DetectedBarcode> detectedBarcodes) {
     Canvas canvas = this.getHolder().lockCanvas();
-    canvas.drawColor(0, PorterDuff.Mode.CLEAR);
+    if (canvas != null) {
+      canvas.drawColor(0, PorterDuff.Mode.CLEAR);
 
-    Paint paint = new Paint();
-    paint.setStyle(Paint.Style.STROKE);
-    paint.setStrokeWidth(5);
+      Paint paint = new Paint();
+      paint.setStyle(Paint.Style.STROKE);
+      paint.setStrokeWidth(5);
 
-    for(RectF outline: barcodeOutlines) {
-      paint.setColor(Color.parseColor("#0000FF"));
-      canvas.drawRoundRect(outline, 0, 0, paint);
+      for (DetectedBarcode barcode : detectedBarcodes) {
+        RectF outline = barcode.getBoundingBox();
+        paint.setColor(Color.parseColor("#0000FF"));
+        canvas.drawRoundRect(outline, 0, 0, paint);
 
-      paint.setColor(Color.parseColor("#FF0000"));
-      canvas.drawLine(outline.left, outline.centerY(), outline.right, outline.centerY(), paint);
+        paint.setColor(Color.parseColor("#FF0000"));
+        canvas.drawLine(outline.left, outline.centerY(), outline.right, outline.centerY(), paint);
+      }
+
+      paint.setColor(Color.GREEN);
+      canvas.drawRect(surfaceArea, paint);
+
+      drawScanArea(canvas);
+
+      getHolder().unlockCanvasAndPost(canvas);
     }
-
-    drawScanArea(canvas);
-
-    getHolder().unlockCanvasAndPost(canvas);
   }
 }

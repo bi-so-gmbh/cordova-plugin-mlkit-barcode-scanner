@@ -1,13 +1,17 @@
 package com.biso.cordova.plugins.mlkit.barcode.scanner;
 
+import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.BARCODE_FORMATS;
+import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.DEBUG_OVERLAY;
+import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.STABLE_THRESHOLD;
 import static com.biso.cordova.plugins.mlkit.barcode.scanner.Utils.getTranslationMatrix;
+import static com.biso.cordova.plugins.mlkit.barcode.scanner.Utils.mapRect;
 
 import android.content.Intent;
 import android.graphics.Matrix;
-import android.graphics.Rect;
 import android.graphics.RectF;
-import android.os.BaseBundle;
 import android.os.Bundle;
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.camera.core.ImageAnalysis.Analyzer;
@@ -21,39 +25,34 @@ import com.google.mlkit.vision.barcode.common.Barcode;
 import com.google.mlkit.vision.common.InputImage;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 public class BarcodeAnalyzer implements Analyzer {
 
-  public static final String BARCODE_FORMAT = "MLKitBarcodeFormat";
-  public static final String BARCODE_TYPE = "MLKitBarcodeType";
-  public static final String BARCODE_VALUE = "MLKitBarcodeValue";
-  public static final String DISTANCE_TO_CENTER = "distanceToCenter";
-  private static final String PROCESSOR = "Barcode Analyzer - Processor";
-  private static final String STABILIZER = "Barcode Analyzer - Stabilizer";
-  private static final String ANALYZER = "Barcode Analyzer - Analyzing";
-  private List<Barcode> lastBarcodes;
+  public static final String BARCODES = "barcodes";
+  private static final String ANALYZER = "BarcodeAnalyzer";
+  private HashSet<DetectedBarcode> lastBarcodes;
   private int stableCounter = 0;
-  private final int stableThreshold;
   private final BarcodeScanner scanner;
   private final CameraOverlay cameraOverlay;
   private final BarcodesListener barcodesListener;
-  private int oldBarcodeSize = -1;
+  private final Bundle settings;
 
-  public BarcodeAnalyzer(int barcodeFormats, int stableThreshold, BarcodesListener barcodesListener, CameraOverlay cameraOverlay) {
-    int useBarcodeFormats = barcodeFormats;
+  public BarcodeAnalyzer(Bundle settings, BarcodesListener barcodesListener,
+      CameraOverlay cameraOverlay) {
+    int useBarcodeFormats = settings.getInt(BARCODE_FORMATS);
     if (useBarcodeFormats == 0 || useBarcodeFormats == 1234) {
       useBarcodeFormats = (Barcode.FORMAT_CODE_39 | Barcode.FORMAT_DATA_MATRIX);
     }
     scanner = BarcodeScanning
         .getClient(
             new BarcodeScannerOptions.Builder().setBarcodeFormats(useBarcodeFormats).build());
-    this.lastBarcodes = new ArrayList<>();
-    this.stableThreshold = stableThreshold;
+    this.settings = settings;
+    this.lastBarcodes = new HashSet<>();
     this.barcodesListener = barcodesListener;
     this.cameraOverlay = cameraOverlay;
   }
@@ -72,105 +71,181 @@ public class BarcodeAnalyzer implements Analyzer {
     try {
       List<Barcode> barcodes = Tasks.await(scannerTask);
 
-      if(barcodes.size() != oldBarcodeSize) {
-        Log.d(ANALYZER, "Total barcodes detected: " + barcodes.size());
-        oldBarcodeSize = barcodes.size();
+      RectF source;
+      if (inputImage.getRotationDegrees() == 90) {
+        source = new RectF(0, 0, inputImage.getHeight(), inputImage.getWidth());
+      } else {
+        source = new RectF(0, 0, inputImage.getWidth(), inputImage.getHeight());
+      }
+      Matrix matrix = getTranslationMatrix(source, cameraOverlay.getSurfaceArea());
+
+      List<DetectedBarcode> detectedBarcodes = barcodes.stream().map(
+              barcode -> new DetectedBarcode(barcode, mapRect(barcode.getBoundingBox(), matrix),
+                  cameraOverlay.getScanArea().centerX(), cameraOverlay.getScanArea().centerY()))
+          .collect(Collectors.toList());
+
+      if (settings.getBoolean(DEBUG_OVERLAY)) {
+        cameraOverlay.drawDebugOverlay(detectedBarcodes);
       }
 
-      if (barcodesStable(barcodes) && stableCounter >= stableThreshold) {
-        processBarcodes(barcodes, imageProxy.getCropRect());
+      if (areBarcodesStable(detectedBarcodes) && stableCounter >= settings.getInt(
+          STABLE_THRESHOLD)) {
+        ArrayList<DetectedBarcode> barcodesInScanArea = (ArrayList<DetectedBarcode>) detectedBarcodes.stream()
+            .filter(barcode -> barcode.isInScanArea(cameraOverlay.getScanArea())).sorted()
+            .collect(Collectors.toList());
+
+        if (!barcodesInScanArea.isEmpty()) {
+          Intent data = new Intent();
+          data.putParcelableArrayListExtra(BARCODES, barcodesInScanArea);
+          barcodesListener.onBarcodesFound(data);
+        }
       }
     } catch (ExecutionException e) {
       Log.e(ANALYZER, e.getMessage());
     } catch (InterruptedException e) {
       Log.e(ANALYZER, e.getMessage());
       Thread.currentThread().interrupt();
-    } finally {
-      imageProxy.close();
     }
+    imageProxy.close();
   }
 
-  private boolean barcodesStable(List<Barcode> barcodes) {
-    if (!barcodes.isEmpty() && (barcodes.size() == lastBarcodes.size())) {
-        int sameBarcodes = 0;
-
-        for (int i = 0; i < lastBarcodes.size(); i++) {
-          String oldBarcodeValue = lastBarcodes.get(i).getRawValue();
-          String newBarcodeValue = barcodes.get(i).getRawValue();
-          if (oldBarcodeValue == null && newBarcodeValue == null) {
-            oldBarcodeValue = new String(lastBarcodes.get(i).getRawBytes(), StandardCharsets.US_ASCII);
-            newBarcodeValue = new String(barcodes.get(i).getRawBytes(), StandardCharsets.US_ASCII);
-          }
-
-          if (Objects.equals(oldBarcodeValue, newBarcodeValue)) {
-            sameBarcodes++;
-          }
-        }
-        if (sameBarcodes == barcodes.size()) {
-          Log.d(STABILIZER, "stable for " + stableCounter + "/" + stableThreshold + " cycles");
-          stableCounter++;
-          return true;
-        }
-      Log.d(STABILIZER, "unstable, counter reset");
-      stableCounter = 0;
+  private boolean areBarcodesStable(List<DetectedBarcode> barcodes) {
+    if (!barcodes.isEmpty() && (barcodes.size() == lastBarcodes.size())
+        && (lastBarcodes.containsAll(barcodes))) {
+      stableCounter++;
+      Log.d(ANALYZER,
+          "barcodes stable for " + stableCounter + "/" + settings.getInt(STABLE_THRESHOLD));
+      return true;
     }
-    lastBarcodes = barcodes;
+    lastBarcodes = new HashSet<>(barcodes);
+    stableCounter = 0;
     return false;
   }
 
-  public void processBarcodes(List<Barcode> detectedBarcodes, Rect imageBounds) {
-    if (!detectedBarcodes.isEmpty()) {
-      ArrayList<Bundle> barcodesInScanArea = new ArrayList<>();
+  public static class DetectedBarcode implements Parcelable, Comparable<DetectedBarcode> {
 
-      Matrix matrix = getTranslationMatrix(new RectF(imageBounds), cameraOverlay.getSurfaceArea());
-      RectF scanArea = cameraOverlay.getScanArea();
+    private final RectF bounds;
+    private String value;
+    private final int format;
+    private final int type;
+    private final double distanceToCenter;
 
-      List<RectF> barcodeBoundingBoxes = new ArrayList<>();
+    public DetectedBarcode(@NonNull Barcode barcode, @NonNull RectF bounds, float centerX,
+        float centerY) {
+      format = barcode.getFormat();
+      type = barcode.getValueType();
+      value = barcode.getRawValue();
+      this.bounds = bounds;
 
-      for (Barcode barcode : detectedBarcodes) {
-        RectF barcodeBounds = new RectF(barcode.getBoundingBox());
-        matrix.mapRect(barcodeBounds);
-        barcodeBoundingBoxes.add(barcodeBounds);
-
-        boolean centerLeftInside = scanArea.contains(barcodeBounds.left, barcodeBounds.centerY());
-        boolean centerRightInside = scanArea.contains(barcodeBounds.right, barcodeBounds.centerY());
-        if (centerLeftInside && centerRightInside) {
-          Bundle bundle = new Bundle();
-          String value = barcode.getRawValue();
-
-          // rawValue returns null if string is not UTF-8 encoded.
-          // If that's the case, we will decode it as ASCII,
-          // because it's the most common encoding for barcodes.
-          // e.g. https://www.barcodefaq.com/1d/code-128/
-          if (value == null) {
-            value = new String(barcode.getRawBytes(), StandardCharsets.US_ASCII);
-          }
-
-          bundle.putInt(BARCODE_FORMAT, barcode.getFormat());
-          bundle.putInt(BARCODE_TYPE, barcode.getValueType());
-          bundle.putString(BARCODE_VALUE, value);
-          double distanceToCenter = Math.hypot(
-              scanArea.centerX() - barcodeBounds.centerX(),
-              scanArea.centerY() - barcodeBounds.centerY());
-          bundle.putDouble(DISTANCE_TO_CENTER, distanceToCenter);
-
-          barcodesInScanArea.add(bundle);
-        }
-        Log.d(PROCESSOR, "("+barcodeBounds.left +", " + barcodeBounds.centerY()+")" + (centerLeftInside ? " in " : " not in ") + scanArea.toShortString());
-        Log.d(PROCESSOR, "("+barcodeBounds.right +", " + barcodeBounds.centerY()+")" + (centerRightInside ? " in " : " not in ") + scanArea.toShortString());
+      // rawValue returns null if string is not UTF-8 encoded.
+      // If that's the case, we will decode it as ASCII,
+      // because it's the most common encoding for barcodes.
+      // e.g. https://www.barcodefaq.com/1d/code-128/
+      if (value == null) {
+        value = new String(barcode.getRawBytes(), StandardCharsets.US_ASCII);
       }
 
-      cameraOverlay.drawDetectedBarcodesOutlines(barcodeBoundingBoxes);
-
-      if (!barcodesInScanArea.isEmpty()) {
-        Intent data = new Intent();
-        barcodesInScanArea.sort(Comparator.comparingDouble(b -> b.getDouble(DISTANCE_TO_CENTER)));
-        Log.d(PROCESSOR, "found barcodes in scan area: " + Arrays.toString(
-            barcodesInScanArea.stream().map(
-                BaseBundle::keySet).toArray()));
-        data.putParcelableArrayListExtra("barcodes", barcodesInScanArea);
-        barcodesListener.onBarcodesFound(data);
-      }
+      distanceToCenter = Math.hypot(centerX - this.bounds.centerX(),
+          centerY - this.bounds.centerY());
     }
+
+    public DetectedBarcode(Parcel in) {
+      value = in.readString();
+      format = in.readInt();
+      type = in.readInt();
+      distanceToCenter = in.readDouble();
+      bounds = in.readTypedObject(RectF.CREATOR);
+    }
+
+    public boolean isInScanArea(RectF scanArea) {
+      if (bounds == null || bounds.height() > bounds.width()) {
+        return false;
+      }
+
+      RectF center = new RectF(bounds.left, bounds.centerY(), bounds.right, bounds.centerY());
+      boolean contained = scanArea.contains(center);
+      Log.d(ANALYZER,
+          center.toShortString() + (contained ? " in " : " not in ") + scanArea.toShortString());
+      return contained;
+    }
+
+    public RectF getBoundingBox() {
+      return bounds;
+    }
+
+    public String getValue() {
+      return value;
+    }
+
+    public int getType() {
+      return type;
+    }
+
+    public int getFormat() {
+      return format;
+    }
+
+    public double getDistanceToCenter() {
+      return distanceToCenter;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+
+      DetectedBarcode other = (DetectedBarcode) o;
+      return Objects.equals(getValue(), other.getValue()) && Objects.equals(getType(),
+          other.getType()) && Objects.equals(getFormat(), other.getFormat());
+    }
+
+    @Override
+    public int hashCode() {
+      int result = 1;
+      int prime = 13;
+      result += prime * value.hashCode();
+      result += prime * type;
+      result += prime * format;
+      return result;
+    }
+
+    @Override
+    @NonNull
+    public String toString() {
+      return "(" + getValue() + ", " + getDistanceToCenter() + ", " + bounds.toShortString() + ")";
+    }
+
+    @Override
+    public int compareTo(DetectedBarcode o) {
+      return Double.compare(distanceToCenter, o.getDistanceToCenter());
+    }
+
+    @Override
+    public int describeContents() {
+      return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel out, int i) {
+      out.writeString(value);
+      out.writeInt(format);
+      out.writeInt(type);
+      out.writeDouble(distanceToCenter);
+      out.writeTypedObject(bounds, Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
+    }
+
+    public static final Parcelable.Creator<DetectedBarcode> CREATOR = new Parcelable.Creator<DetectedBarcode>() {
+      public DetectedBarcode createFromParcel(Parcel in) {
+        return new DetectedBarcode(in);
+      }
+
+      public DetectedBarcode[] newArray(int size) {
+        return new DetectedBarcode[size];
+      }
+    };
   }
 }

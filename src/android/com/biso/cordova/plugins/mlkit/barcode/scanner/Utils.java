@@ -2,6 +2,7 @@ package com.biso.cordova.plugins.mlkit.barcode.scanner;
 
 import android.graphics.Matrix;
 import android.graphics.Matrix.ScaleToFit;
+import android.graphics.Rect;
 import android.graphics.RectF;
 
 public class Utils {
@@ -82,6 +83,31 @@ public class Utils {
     Matrix matrix = new Matrix();
     matrix.setRectToRect(source, destination, ScaleToFit.FILL);
     return matrix;
+  }
+
+  /**
+   * Wrapper to map a Rect object inplace since Matrix only does RectF
+   *
+   * @param rect   rect to map
+   * @param matrix matrix that does the mapping
+   */
+  public static void mapRectInplace(Rect rect, Matrix matrix) {
+    RectF rectF = new RectF(rect);
+    matrix.mapRect(rectF);
+    rect.set((int) rectF.left, (int) rectF.top, (int) rectF.right, (int) rectF.bottom);
+  }
+
+  /**
+   * Wrapper to map a Rect object and return a mapped RectF
+   *
+   * @param rect   rect to map
+   * @param matrix matrix that does the mapping
+   * @return RectF object containing the mapped rectangle
+   */
+  public static RectF mapRect(Rect rect, Matrix matrix) {
+    RectF rectF = new RectF(rect);
+    matrix.mapRect(rectF);
+    return rectF;
   }
 
   private Utils() {

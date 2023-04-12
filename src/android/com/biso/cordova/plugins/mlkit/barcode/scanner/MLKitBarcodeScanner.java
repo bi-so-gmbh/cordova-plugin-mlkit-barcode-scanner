@@ -1,6 +1,8 @@
 package com.biso.cordova.plugins.mlkit.barcode.scanner;
 
+import static com.biso.cordova.plugins.mlkit.barcode.scanner.BarcodeAnalyzer.BARCODES;
 import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.BEEP_ON_SUCCESS;
+import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.DEBUG_OVERLAY;
 import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.DETECTOR_SIZE;
 import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.DRAW_FOCUS_BACKGROUND;
 import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.DRAW_FOCUS_LINE;
@@ -24,9 +26,9 @@ import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.os.VibratorManager;
 import android.util.Log;
-
+import com.biso.cordova.plugins.mlkit.barcode.scanner.BarcodeAnalyzer.DetectedBarcode;
 import com.google.android.gms.common.api.CommonStatusCodes;
-
+import java.io.IOException;
 import java.util.ArrayList;
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaInterface;
@@ -36,8 +38,6 @@ import org.apache.cordova.PluginResult;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-
-import java.io.IOException;
 
 public class MLKitBarcodeScanner extends CordovaPlugin {
 
@@ -122,6 +122,7 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
     intent.putExtra(DRAW_FOCUS_BACKGROUND, config.optBoolean(DRAW_FOCUS_BACKGROUND, true));
     intent.putExtra(FOCUS_BACKGROUND_COLOR, config.optString(FOCUS_BACKGROUND_COLOR, "#CCFFFFFF"));
     intent.putExtra(STABLE_THRESHOLD, config.optInt(STABLE_THRESHOLD, 5));
+    intent.putExtra(DEBUG_OVERLAY, config.optBoolean(DEBUG_OVERLAY, false));
 
     beepOnSuccess = config.optBoolean(BEEP_ON_SUCCESS, false);
     vibrateOnSuccess = config.optBoolean(VIBRATE_ON_SUCCESS, false);
@@ -137,35 +138,29 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
     if (requestCode == RC_BARCODE_CAPTURE) {
       if (resultCode == CommonStatusCodes.SUCCESS) {
         if (data != null) {
-          ArrayList<Bundle> barcodes = data.getParcelableArrayListExtra("barcodes");
-          JSONArray resultBarcodes = new JSONArray();
-          for (Bundle barcode : barcodes) {
-            Integer barcodeFormat = barcode.getInt(BarcodeAnalyzer.BARCODE_FORMAT);
-            Integer barcodeType = barcode.getInt(BarcodeAnalyzer.BARCODE_TYPE);
-            Double distanceToCenter = barcode.getDouble(BarcodeAnalyzer.DISTANCE_TO_CENTER);
-            String barcodeValue = barcode.getString(BarcodeAnalyzer.BARCODE_VALUE);
-
-            JSONArray result = new JSONArray();
-            result.put(barcodeValue);
-            result.put(barcodeFormat);
-            result.put(barcodeType);
-            result.put(distanceToCenter);
-
-            Log.d("MLKitBarcodeScanner", "Barcode read: " + barcodeValue);
-
-            resultBarcodes.put(result);
-          }
-          JSONArray result;
-          // for now just get the first barcode we find, they should be sorted by distance to center
-          // in the future (once IOS is done) we will return all of them
           try {
-            result = resultBarcodes.getJSONArray(0);
+            ArrayList<DetectedBarcode> barcodes = data.getParcelableArrayListExtra(BARCODES);
+            JSONArray resultBarcodes = new JSONArray();
+            for (DetectedBarcode barcode : barcodes) {
+              JSONArray result = new JSONArray();
+              result.put(barcode.getValue());
+              result.put(barcode.getFormat());
+              result.put(barcode.getType());
+              result.put(barcode.getDistanceToCenter());
+
+              Log.d("MLKitBarcodeScanner", "Barcode read: " + barcode);
+
+              resultBarcodes.put(result);
+            }
+            // for now just get the first barcode we find, they should be sorted by distance to center
+            // in the future (once IOS is done) we will return all of them
+            callbackContext.sendPluginResult(
+                new PluginResult(PluginResult.Status.OK, resultBarcodes.getJSONArray(0)));
           } catch (JSONException e) {
             callbackContext.sendPluginResult(
                 new PluginResult(PluginResult.Status.ERROR, "JSON_EXCEPTION"));
             return;
           }
-          callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK, result));
 
           if (beepOnSuccess) {
             mediaPlayer.start();
@@ -176,8 +171,6 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
             vibrator.vibrate(
                 VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE));
           }
-
-
         }
       } else {
         String err = data.getStringExtra("error");

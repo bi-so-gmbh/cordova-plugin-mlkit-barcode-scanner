@@ -18,6 +18,7 @@ public final class Settings {
   public static final String BEEP_ON_SUCCESS = "beepOnSuccess";
   public static final String VIBRATE_ON_SUCCESS = "vibrateOnSuccess";
   public static final String STABLE_THRESHOLD = "stableThreshold";
+  public static final String DEBUG_OVERLAY = "debugOverlay";
 
   private Settings() {
     throw new IllegalStateException("Utility class");

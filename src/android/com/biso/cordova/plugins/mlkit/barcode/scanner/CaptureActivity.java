@@ -1,8 +1,6 @@
 package com.biso.cordova.plugins.mlkit.barcode.scanner;
 
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.BARCODE_FORMATS;
 import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.ROTATE_CAMERA;
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.STABLE_THRESHOLD;
 
 import android.Manifest;
 import android.content.Context;
@@ -160,11 +158,8 @@ public class CaptureActivity extends AppCompatActivity {
         .build();
 
     imageAnalysis.setAnalyzer(executor,
-        new BarcodeAnalyzer(settings.getInt(BARCODE_FORMATS),
-            settings.getInt(STABLE_THRESHOLD), this::finishWithSuccess, cameraOverlay));
+        new BarcodeAnalyzer(settings, this::finishWithSuccess, cameraOverlay));
 
     camera = cameraProvider.bindToLifecycle(this, cameraSelector, imageAnalysis, preview);
   }
-
-
 }
