@@ -2,6 +2,7 @@ package com.biso.cordova.plugins.mlkit.barcode.scanner;
 
 import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.BARCODE_FORMATS;
 import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.DEBUG_OVERLAY;
+import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.ROTATE_CAMERA;
 import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.STABLE_THRESHOLD;
 import static com.biso.cordova.plugins.mlkit.barcode.scanner.Utils.getTranslationMatrix;
 import static com.biso.cordova.plugins.mlkit.barcode.scanner.Utils.mapRect;
@@ -79,6 +80,10 @@ public class BarcodeAnalyzer implements Analyzer {
         source = new RectF(0, 0, inputImage.getWidth(), inputImage.getHeight());
       }
       Matrix matrix = getTranslationMatrix(source, cameraOverlay.getSurfaceArea());
+
+      if (settings.getBoolean(ROTATE_CAMERA)) {
+        matrix.postRotate(180, cameraOverlay.getSurfaceArea().centerX(), cameraOverlay.getSurfaceArea().centerY());
+      }
 
       List<DetectedBarcode> detectedBarcodes = barcodes.stream().map(
               barcode -> new DetectedBarcode(barcode, mapRect(barcode.getBoundingBox(), matrix),
