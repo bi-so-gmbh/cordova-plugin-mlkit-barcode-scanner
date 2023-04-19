@@ -16,16 +16,11 @@
     "plugins": {
       "cordova-plugin-mlkit-barcode-scanner": {}
     },
-    "platforms": [
-      "android"
-    ]
+    "platforms": []
   },
   "dependencies": {
-    "cordova-plugin-whitelist": "1.3.4"
   },
   "devDependencies": {
-    "cordova-android": "^11.0.0",
-    "cordova-ios": "6.2.0",
     "cordova-plugin-mlkit-barcode-scanner": "file:../.."
   }
 }

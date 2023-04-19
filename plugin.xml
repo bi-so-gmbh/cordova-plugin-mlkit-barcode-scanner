@@ -22,7 +22,7 @@
       target="config.xml">
       <feature name="cordova-plugin-mlkit-barcode-scanner">
         <param name="ios-package"
-          value="CDViOSScanner" />
+          value="MLKitBarcodeScanner" />
       </feature>
     </config-file>
     <config-file target="*-Info.plist"
@@ -45,13 +45,17 @@
         <source url="https://cdn.cocoapods.org/" />
       </config>
       <pods use-frameworks="true">
-        <pod name="GoogleMLKit/BarcodeScanning" spec="~> 3.2.0" />
+        <pod name="GoogleMLKit/BarcodeScanning"
+          spec="~> 3.2.0" />
       </pods>
     </podspec>
-    <header-file src="src/ios/CDViOSScanner.h" />
+    <!--<header-file src="src/ios/CDViOSScanner.h" />
     <source-file src="src/ios/CDViOSScanner.m" />
     <header-file src="src/ios/CameraViewController.h" />
-    <source-file src="src/ios/CameraViewController.m" />
+    <source-file src="src/ios/CameraViewController.m" />-->
+    <source-file src="src/ios/MLKitBarcodeScanner.swift" />
+    <source-file src="src/ios/CameraViewController.swift" />
+    <source-file src="src/ios/UIUtilities.swift" />
     <resource-file src="src/ios/Sounds/beep.caf" />
     <resource-file src="src/ios/de.lproj/Localizable.strings"
       target="de.lproj/Localizable.strings" />
