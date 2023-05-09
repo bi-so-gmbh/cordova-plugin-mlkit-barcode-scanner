@@ -5,33 +5,18 @@ import UIKit
 
 class CameraOverlay: UIView {
 
-    var previewOverlayView: UIImageView
     private var lastFrame: CMSampleBuffer?
-    var previewLayer: AVCaptureVideoPreviewLayer!
-    private var scanArea: CGRect
+    public private(set) var scanArea: CGRect
     private var settings: ScannerSettings
+    public private(set) var previewLayer: AVCaptureVideoPreviewLayer!
 
-    init(settings: ScannerSettings, parentView: UIView, previewLayer: AVCaptureVideoPreviewLayer) {
+    init(settings: ScannerSettings, parentView: UIView) {
         print("CameraOverlayInit")
-        previewOverlayView = UIImageView(frame: .zero)
-        previewOverlayView.contentMode = UIView.ContentMode.scaleAspectFill
-        previewOverlayView.translatesAutoresizingMaskIntoConstraints = false
 
-        parentView.addSubview(previewOverlayView)
-        NSLayoutConstraint.activate([
-            previewOverlayView.centerXAnchor.constraint(equalTo: parentView.centerXAnchor),
-            previewOverlayView.centerYAnchor.constraint(equalTo: parentView.centerYAnchor),
-            previewOverlayView.leadingAnchor.constraint(equalTo: parentView.leadingAnchor),
-            previewOverlayView.trailingAnchor.constraint(equalTo: parentView.trailingAnchor),
-        ])
-
-        self.scanArea = Utils.calculateCGRect(height: previewOverlayView.frame.height, width: previewOverlayView.frame.width, scaleFactor: settings.detectorSize, aspectRatio: settings.aspectRatioF)
-        self.previewLayer = previewLayer
+        self.scanArea = Utils.calculateCGRect(height: parentView.bounds.height, width: parentView.bounds.width, scaleFactor: settings.detectorSize, aspectRatio: settings.aspectRatioF)
         self.settings = settings
 
         super.init(frame: .zero)
-
-        self.translatesAutoresizingMaskIntoConstraints = false
 
         parentView.addSubview(self)
         NSLayoutConstraint.activate([
@@ -41,6 +26,8 @@ class CameraOverlay: UIView {
             self.bottomAnchor.constraint(equalTo: parentView.bottomAnchor),
         ])
 
+        self.translatesAutoresizingMaskIntoConstraints = false
+        self.contentMode = UIView.ContentMode.scaleAspectFill
         self.isOpaque = false
         self.backgroundColor = UIColor.clear
 
@@ -51,49 +38,39 @@ class CameraOverlay: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        self.setNeedsDisplay()
+    }
+
     override func draw(_ rect: CGRect) {
-        print(self.bounds)
+        super.draw(rect)
         self.scanArea = Utils.calculateCGRect(height: bounds.height, width: bounds.width, scaleFactor: settings.detectorSize, aspectRatio: settings.aspectRatioF)
         if let context = UIGraphicsGetCurrentContext() {
             drawScanArea(context: context)
         }
     }
 
-    private func removeDetectionAnnotations() {
-        for annotationView in self.subviews {
-            annotationView.removeFromSuperview()
+    public func setPreviewLayer(previewlayer: AVCaptureVideoPreviewLayer) {
+        self.previewLayer = previewlayer
+    }
+
+    public func drawDebugOverlay(barcodes: [DetectedBarcode]) {
+        weak var weakSelf = self
+        DispatchQueue.main.sync {
+            guard weakSelf != nil else {
+                return
+            }
+            for annotationView in self.subviews {
+                annotationView.removeFromSuperview()
+            }
+            for barcode in barcodes {
+                let rectangleView = UIView(frame: barcode.bounds)
+                rectangleView.layer.borderColor = UIColor.green.cgColor
+                rectangleView.layer.borderWidth = 2
+                addSubview(rectangleView)
+            }
         }
-    }
-
-    public func updatePreviewOverlayViewWithLastFrame() {
-        guard let lastFrame = lastFrame,
-              let imageBuffer = CMSampleBufferGetImageBuffer(lastFrame)
-        else {
-            return
-        }
-        self.updatePreviewOverlayViewWithImageBuffer(imageBuffer)
-        self.removeDetectionAnnotations()
-    }
-
-    private func updatePreviewOverlayViewWithImageBuffer(_ imageBuffer: CVImageBuffer?) {
-        guard let imageBuffer = imageBuffer else {
-            return
-        }
-        let image = UIUtilities.createUIImage(from: imageBuffer, orientation: .right)
-        previewOverlayView.image = image
-    }
-
-    public func updateLastFrame(lastFrame:CMSampleBuffer) {
-        self.lastFrame = lastFrame
-    }
-
-    public func drawRectangle(_ rectangle: CGRect, color: UIColor, cornerRadius: Int = 0, borderThickness: Int = 5) {
-        guard rectangle.isValid() else { return }
-        let rectangleView = UIView(frame: rectangle)
-        rectangleView.layer.cornerRadius = CGFloat(cornerRadius)
-        rectangleView.layer.borderColor = color.cgColor
-        rectangleView.layer.borderWidth = CGFloat(borderThickness)
-        addSubview(rectangleView)
     }
 
     private func drawScanArea(context: CGContext) {
@@ -119,7 +96,7 @@ class CameraOverlay: UIView {
     }
 
     private func drawScanAreaOutline(context: CGContext, color: UIColor, thickness: Int, radius: Int) {
-        var rounded = UIBezierPath(roundedRect: scanArea, cornerRadius: CGFloat(radius))
+        let rounded = UIBezierPath(roundedRect: scanArea, cornerRadius: CGFloat(radius))
         context.addPath(rounded.cgPath)
         context.setLineWidth(CGFloat(thickness))
         context.setStrokeColor(color.cgColor)
@@ -128,7 +105,7 @@ class CameraOverlay: UIView {
     }
 
     private func drawFocusBackground(context: CGContext, color: UIColor, radius: Int) {
-        var rounded = UIBezierPath(roundedRect: scanArea, cornerRadius: CGFloat(radius))
+        let rounded = UIBezierPath(roundedRect: scanArea, cornerRadius: CGFloat(radius))
         color.setFill()
         context.fill(bounds)
         context.saveGState()

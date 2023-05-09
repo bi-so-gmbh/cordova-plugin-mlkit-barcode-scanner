@@ -25,17 +25,6 @@
           value="MLKitBarcodeScanner" />
       </feature>
     </config-file>
-    <config-file target="*-Info.plist"
-      parent="CFBundleDevelopmentRegion">
-      <string>de_DE</string>
-    </config-file>
-    <config-file target="*-Info.plist"
-      parent="CFBundleLocalizations">
-      <array>
-        <string>en</string>
-        <string>de</string>
-      </array>
-    </config-file>
 
     <framework src="Foundation.framework" />
     <framework src="AVFoundation.framework" />
@@ -53,14 +42,9 @@
     <source-file src="src/ios/CDViOSScanner.m" />
     <header-file src="src/ios/CameraViewController.h" />
     <source-file src="src/ios/CameraViewController.m" />-->
-    <source-file src="src/ios/MLKitBarcodeScanner.swift" />
-    <source-file src="src/ios/CameraViewController.swift" />
-    <source-file src="src/ios/UIUtilities.swift" />
-    <resource-file src="src/ios/Sounds/beep.caf" />
-    <resource-file src="src/ios/de.lproj/Localizable.strings"
-      target="de.lproj/Localizable.strings" />
-    <resource-file src="src/ios/en.lproj/Localizable.strings"
-      target="en.lproj/Localizable.strings" />
+    <source-file src="src/ios/" />
+    <resource-file src="src/ios/assets/beep.caf" />
+    <resource-file src="src/ios/assets/flashlight.png" />
   </platform>
   <platform name="android">
     <config-file parent="/*"

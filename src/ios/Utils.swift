@@ -1,3 +1,5 @@
+import AVFoundation
+
 class Utils {
 
     /**
@@ -11,7 +13,6 @@ class Utils {
      * @return rectangle based on float values, centered in the area
      */
     public static func calculateCGRect(height: CGFloat, width: CGFloat, scaleFactor: Double, aspectRatio: Float) -> CGRect {
-        //print("size:",height,"x",width)
         let rectWidth:CGFloat  = CGFloat((Double(min(height, width)) * scaleFactor))
         let rectHeight:CGFloat = CGFloat(rectWidth / CGFloat(aspectRatio))
 
@@ -20,8 +21,6 @@ class Utils {
 
         let left:CGFloat = offsetX / 2
         let top:CGFloat = offsetY / 2
-
-        //return CGRect(origin:CGPoint(x:left, y:top), size: CGSize(width: rectWidth, height: rectHeight))
 
         return CGRect(x:left, y:top, width:rectWidth, height:rectHeight)
     }
@@ -45,7 +44,7 @@ class Utils {
         return 1;
     }
 
-    public static func hexStringToUIColor (hex: String) -> UIColor {
+    public static func hexStringToUIColor(hex: String) -> UIColor {
 
         var cString:String = hex.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
 
@@ -93,4 +92,55 @@ class Utils {
         print("Can't convert \type(of: input) to Int")
         return Optional(nil)
     }
+
+    public static func imageOrientation(
+      fromDevicePosition devicePosition: AVCaptureDevice.Position = .back
+    ) -> UIImage.Orientation {
+      var deviceOrientation = UIDevice.current.orientation
+      if deviceOrientation == .faceDown || deviceOrientation == .faceUp
+        || deviceOrientation
+          == .unknown
+      {
+        deviceOrientation = currentUIOrientation()
+      }
+      switch deviceOrientation {
+      case .portrait:
+        return devicePosition == .front ? .leftMirrored : .right
+      case .landscapeLeft:
+        return devicePosition == .front ? .downMirrored : .up
+      case .portraitUpsideDown:
+        return devicePosition == .front ? .rightMirrored : .left
+      case .landscapeRight:
+        return devicePosition == .front ? .upMirrored : .down
+      case .faceDown, .faceUp, .unknown:
+        return .up
+      @unknown default:
+        fatalError()
+      }
+    }
+
+    private static func currentUIOrientation() -> UIDeviceOrientation {
+        let deviceOrientation = { () -> UIDeviceOrientation in
+          switch UIApplication.shared.statusBarOrientation {
+          case .landscapeLeft:
+            return .landscapeRight
+          case .landscapeRight:
+            return .landscapeLeft
+          case .portraitUpsideDown:
+            return .portraitUpsideDown
+          case .portrait, .unknown:
+            return .portrait
+          @unknown default:
+            fatalError()
+          }
+        }
+        guard Thread.isMainThread else {
+          var currentOrientation: UIDeviceOrientation = .portrait
+          DispatchQueue.main.sync {
+            currentOrientation = deviceOrientation()
+          }
+          return currentOrientation
+        }
+        return deviceOrientation()
+      }
 }

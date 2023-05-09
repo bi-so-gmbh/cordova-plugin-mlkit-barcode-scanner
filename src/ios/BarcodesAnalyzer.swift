@@ -2,7 +2,7 @@ import MLImage
 import MLKit
 
 protocol BarcodesListener: NSObjectProtocol {
-    func onBarcodesFound(barcodes: Array<Barcode>)
+    func onBarcodesFound(_ barcodes: [DetectedBarcode])
 }
 
 class BarcodeAnalyzer {
@@ -10,7 +10,10 @@ class BarcodeAnalyzer {
     private var scanner: BarcodeScanner
     private var cameraOverlay: CameraOverlay
     private var barcodesListener: BarcodesListener
-    private var scannerSettings: ScannerSettings
+    private var settings: ScannerSettings
+
+    private var lastBarcodes: [DetectedBarcode] = []
+    private var stableCounter: Int = 0
 
     init(settings: ScannerSettings, barcodesListener: BarcodesListener, cameraOverlay:CameraOverlay) {
         print("BarcodeAnalyzerInit")
@@ -22,7 +25,7 @@ class BarcodeAnalyzer {
         scanner = BarcodeScanner.barcodeScanner(options: BarcodeScannerOptions(formats: barcodeFormats))
         self.cameraOverlay = cameraOverlay
         self.barcodesListener = barcodesListener
-        self.scannerSettings = settings
+        self.settings = settings
         print("BarcodeAnalyzerInit-end")
     }
 
@@ -33,33 +36,50 @@ class BarcodeAnalyzer {
         } catch let error {
             print(error.localizedDescription)
         }
-        weak var weakSelf = self
-        DispatchQueue.main.sync {
-            guard weakSelf != nil else {
-                return
-            }
-            cameraOverlay.updatePreviewOverlayViewWithLastFrame()
 
-            guard !barcodes.isEmpty else {
-                return
-            }
-            print("analyze")
-            for barcode in barcodes {
-                let normalizedRect = CGRect(
-                    x: barcode.frame.origin.x / width,
-                    y: barcode.frame.origin.y / height,
-                    width: barcode.frame.size.width / width,
-                    height: barcode.frame.size.height / height
-                )
-                let convertedRect = cameraOverlay.previewLayer.layerRectConverted(
-                    fromMetadataOutputRect: normalizedRect
-                )
-                if(scannerSettings.debugOverlay) {
-                    cameraOverlay.drawRectangle(convertedRect, color: UIColor.green)
+        var detectedBarcodes: [DetectedBarcode] = []
+        for barcode in barcodes {
+            let normalizedRect = CGRect(
+                x: barcode.frame.origin.x / width,
+                y: barcode.frame.origin.y / height,
+                width: barcode.frame.size.width / width,
+                height: barcode.frame.size.height / height
+            )
+            let convertedRect = cameraOverlay.previewLayer.layerRectConverted(fromMetadataOutputRect: normalizedRect)
+            detectedBarcodes.append(DetectedBarcode(barcode: barcode, bounds: convertedRect, centerX: cameraOverlay.previewLayer.bounds.midX, centerY: cameraOverlay.previewLayer.bounds.midY))
+        }
+
+        if(settings.debugOverlay) {
+            cameraOverlay.drawDebugOverlay(barcodes: detectedBarcodes)
+        }
+
+        if (areBarcodesStable(barcodes: detectedBarcodes) && stableCounter >= settings.stableThreshold) {
+            var barcodesInScanArea: [DetectedBarcode] = []
+            for barcode in detectedBarcodes {
+                if(barcode.isInScanArea(scanArea: cameraOverlay.scanArea)) {
+                    barcodesInScanArea.append(barcode)
                 }
             }
-            barcodesListener.onBarcodesFound(barcodes: barcodes)
+            barcodesInScanArea.sort {
+                $0.distanceToCenter < $1.distanceToCenter
+            }
+            if (!barcodesInScanArea.isEmpty) {
+                barcodesListener.onBarcodesFound(barcodesInScanArea)
+            }
         }
     }
 
+    private func areBarcodesStable(barcodes: [DetectedBarcode]) -> Bool {
+        let barcodesSet = Set(barcodes)
+        let lastBarcodesSet = Set(lastBarcodes)
+        let differences = barcodesSet.subtracting(lastBarcodesSet)
+        if (!barcodes.isEmpty && differences.isEmpty) {
+            stableCounter += 1
+            print("barcodes stable for \(stableCounter)/\(settings.stableThreshold)")
+            return true
+        }
+        stableCounter = 0
+        lastBarcodes = barcodes
+        return false
+    }
 }

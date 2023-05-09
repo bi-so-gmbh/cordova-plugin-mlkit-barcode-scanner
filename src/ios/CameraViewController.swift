@@ -1,43 +1,26 @@
-//
-//  Copyright (c) 2018 Google Inc.
-//
-//  Licensed under the Apache License, Version 2.0 (the "License");
-//  you may not use this file except in compliance with the License.
-//  You may obtain a copy of the License at
-//
-//  http://www.apache.org/licenses/LICENSE-2.0
-//
-//  Unless required by applicable law or agreed to in writing, software
-//  distributed under the License is distributed on an "AS IS" BASIS,
-//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//  See the License for the specific language governing permissions and
-//  limitations under the License.
-//
-
+import UIKit
+import SwiftUI
 import AVFoundation
-import CoreVideo
 import MLImage
 import MLKit
 
 protocol CameraViewControllerDelegate: NSObjectProtocol {
-    func onComplete(result: String)
-    func onError(error: String)
+    func onComplete(_ result: [DetectedBarcode])
+    func onError(_ error: String)
 }
 
-@objc(CameraViewController)
 class CameraViewController: UIViewController, BarcodesListener {
-    func onBarcodesFound(barcodes: Array<Barcode>) {
-        closeWithResult()
-    }
-
     weak var delegate: CameraViewControllerDelegate?
-    private var previewLayer: AVCaptureVideoPreviewLayer!
-    private lazy var captureSession = AVCaptureSession()
-    private lazy var sessionQueue = DispatchQueue(label: Constant.sessionQueueLabel)
-    private var lastFrame: CMSampleBuffer?
-    private var cameraOverlay : CameraOverlay!
-    private var barcodeAnalyzer : BarcodeAnalyzer!
+    private let captureSession = AVCaptureSession()
+    private let sessionQueue = DispatchQueue(label: "sessionQueue")
+    private var previewLayer = AVCaptureVideoPreviewLayer()
     private var settings: ScannerSettings
+    private var cameraOverlay: CameraOverlay!
+    private var barcodeAnalyzer : BarcodeAnalyzer!
+
+    func onBarcodesFound(_ barcodes: [DetectedBarcode]) {
+        finishWithResult(barcodes)
+    }
 
     init(settings: ScannerSettings) {
         self.settings = settings
@@ -49,114 +32,129 @@ class CameraViewController: UIViewController, BarcodesListener {
         super.init(coder: coder)
     }
 
-    // MARK: - UIViewController
+  override func viewDidLoad() {
+      cameraOverlay = CameraOverlay(settings: settings, parentView: view)
+      barcodeAnalyzer = BarcodeAnalyzer(settings: settings, barcodesListener: self, cameraOverlay: cameraOverlay)
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
-
-        previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
-        cameraOverlay = CameraOverlay(settings: settings, parentView: self.view, previewLayer: previewLayer)
-        setUpCaptureSessionOutput()
-        setUpCaptureSessionInput()
-
-        barcodeAnalyzer = BarcodeAnalyzer(settings: settings, barcodesListener: self, cameraOverlay: cameraOverlay)
+      if AVCaptureDevice.authorizationStatus(for: .video) == .authorized {
+          setupCaptureSession()
+          setupUI()
+      } else {
+          AVCaptureDevice.requestAccess(for: .video, completionHandler: { (authorized) in
+              DispatchQueue.main.async {
+                  if authorized {
+                      self.setupCaptureSession()
+                      self.setupUI()
+                  } else {
+                      self.finishWithError("NO_CAMERA_PERMISSION")
+                  }
+              }
+          })
+      }
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+    }
 
+    override func viewWillAppear(_ animated: Bool) {
         startSession()
+        while(!captureSession.isRunning) {
+            usleep(100)
+        }
+        usleep(150000)
     }
 
     override func viewDidDisappear(_ animated: Bool) {
-        super.viewDidDisappear(animated)
-
         stopSession()
     }
 
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
+    override func willTransition(to newCollection: UITraitCollection, with coordinator: UIViewControllerTransitionCoordinator) {
+        previewLayer.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+        cameraOverlay.setPreviewLayer(previewlayer: previewLayer)
 
-        previewLayer.frame = self.view.frame
-    }
+        switch UIDevice.current.orientation {
+            case UIDeviceOrientation.portraitUpsideDown:
+                previewLayer.connection?.videoOrientation = .portraitUpsideDown
 
-    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
-        if UIDevice.current.orientation.isLandscape {
-            print("Landscape")
-            // do your stuff here for landscape
-        } else {
-            print("Portrait")
-            // do your stuff here for portrait
+            case UIDeviceOrientation.landscapeLeft:
+                previewLayer.connection?.videoOrientation = .landscapeRight
+
+            case UIDeviceOrientation.landscapeRight:
+                previewLayer.connection?.videoOrientation = .landscapeLeft
+
+            case UIDeviceOrientation.portrait:
+                previewLayer.connection?.videoOrientation = .portrait
+
+            default:
+                break
         }
     }
 
-    // MARK: - Private
-    private func setUpCaptureSessionOutput() {
-        weak var weakSelf = self
-        sessionQueue.async {
-            guard let strongSelf = weakSelf else {
-                print("Self is nil!")
-                return
-            }
-            strongSelf.captureSession.beginConfiguration()
-            // When performing latency tests to determine ideal capture settings,
-            // run the app in 'release' mode to get accurate performance metrics
-            strongSelf.captureSession.sessionPreset = AVCaptureSession.Preset.high
+    private func setupCaptureSession() {
+           guard let videoDevice = captureDevice() else {
+               finishWithError("NO_CAMERA")
+               return
 
-            let output = AVCaptureVideoDataOutput()
-            output.videoSettings = [
-                (kCVPixelBufferPixelFormatTypeKey as String): kCVPixelFormatType_32BGRA
-            ]
-            output.alwaysDiscardsLateVideoFrames = true
-            let outputQueue = DispatchQueue(label: Constant.videoDataOutputQueueLabel)
-            output.setSampleBufferDelegate(strongSelf, queue: outputQueue)
-            guard strongSelf.captureSession.canAddOutput(output) else {
-                print("Failed to add capture session output.")
-                return
-            }
-            strongSelf.captureSession.addOutput(output)
-            strongSelf.captureSession.commitConfiguration()
+           }
+        guard let videoDeviceInput = try? AVCaptureDeviceInput(device: videoDevice) else {
+            finishWithError("NO_CAMERA")
+            return
+
         }
+           guard captureSession.canAddInput(videoDeviceInput) else { return }
+
+           captureSession.addInput(videoDeviceInput)
+
+           previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
+        previewLayer.backgroundColor = UIColor.black.cgColor
+           previewLayer.frame = view.bounds
+           previewLayer.videoGravity = AVLayerVideoGravity.resizeAspectFill
+
+           previewLayer.connection?.videoOrientation = .portrait
+
+           let output = AVCaptureVideoDataOutput()
+           output.alwaysDiscardsLateVideoFrames = true
+           output.setSampleBufferDelegate(self, queue: DispatchQueue(label: "sampleQueue"))
+
+           captureSession.addOutput(output)
     }
 
-    private func setUpCaptureSessionInput() {
-        weak var weakSelf = self
-        sessionQueue.async {
-            guard let strongSelf = weakSelf else {
-                print("Self is nil!")
-                return
-            }
-            guard let device = strongSelf.captureDevice(forPosition: .back) else {
-                strongSelf.closeWithError(error: "Failed to get capture device for camera position")
-                return
-            }
-            do {
-                strongSelf.captureSession.beginConfiguration()
-                let currentInputs = strongSelf.captureSession.inputs
-                for input in currentInputs {
-                    strongSelf.captureSession.removeInput(input)
-                }
+    private func setupUI() {
+        view.layer.addSublayer(previewLayer)
+         cameraOverlay.setPreviewLayer(previewlayer: previewLayer)
+         view.bringSubviewToFront(cameraOverlay)
 
-                let input = try AVCaptureDeviceInput(device: device)
-                guard strongSelf.captureSession.canAddInput(input) else {
-                    strongSelf.closeWithError(error: "Failed to add capture session input.")
-                    return
-                }
-                strongSelf.captureSession.addInput(input)
-                strongSelf.captureSession.commitConfiguration()
-            } catch {
-                print("Failed to create capture device input: \(error.localizedDescription)")
-            }
+        var torchButton = UIButton(type: UIButton.ButtonType.custom)
+        torchButton.backgroundColor = UIColor.white
+        torchButton.layer.cornerRadius = 35
+        torchButton.frame = CGRect(x: view.frame.width - 70, y: view.frame.height - 110, width: 70, height: 70)
+        torchButton.clipsToBounds = true
+        if let image = UIImage(named: "flashlight.png")
+        {
+            torchButton.setImage(image, for: UIControl.State.normal)
         }
+
+        view.addSubview(torchButton)
+        view.bringSubviewToFront(torchButton)
+    }
+
+    private func captureDevice() -> AVCaptureDevice? {
+        if #available(iOS 10.0, *) {
+            let discoverySession = AVCaptureDevice.DiscoverySession(
+                deviceTypes: [.builtInWideAngleCamera],
+                mediaType: .video,
+                position: .unspecified
+            )
+            return discoverySession.devices.first { $0.position == .back }
+        }
+        return nil
     }
 
     private func startSession() {
         weak var weakSelf = self
         sessionQueue.async {
-            guard let strongSelf = weakSelf else {
-                print("Self is nil!")
-                return
-            }
+            guard let strongSelf = weakSelf else {return}
             strongSelf.captureSession.startRunning()
         }
     }
@@ -164,130 +162,41 @@ class CameraViewController: UIViewController, BarcodesListener {
     private func stopSession() {
         weak var weakSelf = self
         sessionQueue.async {
-            guard let strongSelf = weakSelf else {
-                print("Self is nil!")
-                return
-            }
+            guard let strongSelf = weakSelf else {return}
             strongSelf.captureSession.stopRunning()
         }
     }
 
-    private func captureDevice(forPosition position: AVCaptureDevice.Position) -> AVCaptureDevice? {
-        if #available(iOS 10.0, *) {
-            let discoverySession = AVCaptureDevice.DiscoverySession(
-                deviceTypes: [.builtInWideAngleCamera],
-                mediaType: .video,
-                position: .unspecified
-            )
-            return discoverySession.devices.first { $0.position == position }
-        }
-        return nil
+    private func finishWithError(_ error: String) {
+        delegate?.onError(error)
     }
 
-    private func convertedPoints(
-        from points: [NSValue]?,
-        width: CGFloat,
-        height: CGFloat
-    ) -> [NSValue]? {
-        return points?.map {
-            let cgPointValue = $0.cgPointValue
-            let normalizedPoint = CGPoint(x: cgPointValue.x / width, y: cgPointValue.y / height)
-            let cgPoint = previewLayer.layerPointConverted(fromCaptureDevicePoint: normalizedPoint)
-            let value = NSValue(cgPoint: cgPoint)
-            return value
-        }
-    }
-
-    private func normalizedPoint(
-        fromVisionPoint point: VisionPoint,
-        width: CGFloat,
-        height: CGFloat
-    ) -> CGPoint {
-        let cgPoint = CGPoint(x: point.x, y: point.y)
-        var normalizedPoint = CGPoint(x: cgPoint.x / width, y: cgPoint.y / height)
-        normalizedPoint = previewLayer.layerPointConverted(fromCaptureDevicePoint: normalizedPoint)
-        return normalizedPoint
-    }
-
-    private func rotate(_ view: UIView, orientation: UIImage.Orientation) {
-        var degree: CGFloat = 0.0
-        switch orientation {
-        case .up, .upMirrored:
-            degree = 90.0
-        case .rightMirrored, .left:
-            degree = 180.0
-        case .down, .downMirrored:
-            degree = 270.0
-        case .leftMirrored, .right:
-            degree = 0.0
-        default:
-            print("Unknown orientation")
-        }
-        view.transform = CGAffineTransform.init(rotationAngle: degree * 3.141592654 / 180)
-    }
-
-    private func closeWithError(error: String) {
-        delegate?.onError(error:error)
-        self.stopSession()
-    }
-
-    private func closeWithResult(){
-        delegate?.onComplete(result:"Finished")
-        self.stopSession()
+    private func finishWithResult(_ result: [DetectedBarcode]){
+        delegate?.onComplete(result)
     }
 }
-
-// MARK: AVCaptureVideoDataOutputSampleBufferDelegate
 
 extension CameraViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
 
-    func captureOutput(
-        _ output: AVCaptureOutput,
-        didOutput sampleBuffer: CMSampleBuffer,
-        from connection: AVCaptureConnection
-    ) {
-        guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
-            print("Failed to get image buffer from sample buffer.")
-            return
-        }
+    func captureOutput(_ output: AVCaptureOutput,didOutput sampleBuffer: CMSampleBuffer,from connection: AVCaptureConnection) {
+            guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+                print("Failed to get image buffer from sample buffer.")
+                return
+            }
 
-        cameraOverlay.updateLastFrame(lastFrame: sampleBuffer)
-        let visionImage = VisionImage(buffer: sampleBuffer)
-        let orientation = UIUtilities.imageOrientation(fromDevicePosition: .back)
-        visionImage.orientation = orientation
+            let visionImage = VisionImage(buffer: sampleBuffer)
+            let orientation = Utils.imageOrientation(fromDevicePosition: .back)
+            visionImage.orientation = orientation
 
-        guard let inputImage = MLImage(sampleBuffer: sampleBuffer) else {
-            print("Failed to create MLImage from sample buffer.")
-            return
-        }
-        inputImage.orientation = orientation
+            guard let inputImage = MLImage(sampleBuffer: sampleBuffer) else {
+                print("Failed to create MLImage from sample buffer.")
+                return
+            }
+            inputImage.orientation = orientation
 
-        let imageWidth = CGFloat(CVPixelBufferGetWidth(imageBuffer))
-        let imageHeight = CGFloat(CVPixelBufferGetHeight(imageBuffer))
+            let imageWidth = CGFloat(CVPixelBufferGetWidth(imageBuffer))
+            let imageHeight = CGFloat(CVPixelBufferGetHeight(imageBuffer))
 
-        barcodeAnalyzer.analyze(in: visionImage, width: imageWidth, height: imageHeight)
+            barcodeAnalyzer.analyze(in: visionImage, width: imageWidth, height: imageHeight)
     }
-}
-
-// MARK: - Constants
-private enum Constant {
-    static let alertControllerTitle = "Vision Detectors"
-    static let alertControllerMessage = "Select a detector"
-    static let cancelActionTitleText = "Cancel"
-    static let videoDataOutputQueueLabel = "com.google.mlkit.visiondetector.VideoDataOutputQueue"
-    static let sessionQueueLabel = "com.google.mlkit.visiondetector.SessionQueue"
-    static let noResultsMessage = "No Results"
-    static let localModelFile = (name: "bird", type: "tflite")
-    static let labelConfidenceThreshold = 0.75
-    static let smallDotRadius: CGFloat = 4.0
-    static let lineWidth: CGFloat = 3.0
-    static let originalScale: CGFloat = 1.0
-    static let padding: CGFloat = 10.0
-    static let resultsLabelHeight: CGFloat = 200.0
-    static let resultsLabelLines = 5
-    static let imageLabelResultFrameX = 0.4
-    static let imageLabelResultFrameY = 0.1
-    static let imageLabelResultFrameWidth = 0.5
-    static let imageLabelResultFrameHeight = 0.8
-    static let segmentationMaskAlpha: CGFloat = 0.5
 }
