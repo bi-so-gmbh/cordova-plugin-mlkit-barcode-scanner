@@ -1,6 +1,6 @@
 package com.biso.cordova.plugins.mlkit.barcode.scanner;
 
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.ROTATE_CAMERA;
+import static com.biso.cordova.plugins.mlkit.barcode.scanner.MLKitBarcodeScanner.SETTINGS;
 
 import android.Manifest;
 import android.content.Context;
@@ -34,7 +34,7 @@ public class CaptureActivity extends AppCompatActivity {
   private final ExecutorService executor = Executors.newSingleThreadExecutor();
   private static final int RC_HANDLE_CAMERA_PERM = 2;
   private Camera camera;
-  private Bundle settings;
+  private ScannerSettings settings;
   private CameraOverlay cameraOverlay;
   private static final String[] PERMISSIONS = new String[]{Manifest.permission.CAMERA};
   private ImageAnalysis imageAnalysis;
@@ -53,7 +53,7 @@ public class CaptureActivity extends AppCompatActivity {
       finishWithError("NO_CAMERA");
     }
 
-    settings = getIntent().getExtras();
+    settings = getIntent().getParcelableExtra(SETTINGS);
 
     setContentView(getResources().getIdentifier("capture_activity", "layout", getPackageName()));
     cameraOverlay = new CameraOverlay(this, settings);
@@ -119,13 +119,8 @@ public class CaptureActivity extends AppCompatActivity {
         getResources().getIdentifier("previewView", "id", getPackageName()));
     previewView.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
 
-    if (settings.getBoolean(ROTATE_CAMERA)) {
-      previewView.setScaleX(-1F);
-      previewView.setScaleY(-1F);
-    } else {
-      previewView.setScaleX(1F);
-      previewView.setScaleY(1F);
-    }
+    previewView.setScaleX(1F);
+    previewView.setScaleY(1F);
 
     ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(
         this);

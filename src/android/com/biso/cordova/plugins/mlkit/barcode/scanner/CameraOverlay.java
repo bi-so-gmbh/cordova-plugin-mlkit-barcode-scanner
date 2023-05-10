@@ -1,18 +1,5 @@
 package com.biso.cordova.plugins.mlkit.barcode.scanner;
-
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.DETECTOR_ASPECT_RATIO;
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.DETECTOR_SIZE;
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.DRAW_FOCUS_BACKGROUND;
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.DRAW_FOCUS_LINE;
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.DRAW_FOCUS_RECT;
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.FOCUS_BACKGROUND_COLOR;
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.FOCUS_LINE_COLOR;
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.FOCUS_LINE_THICKNESS;
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.FOCUS_RECT_BORDER_RADIUS;
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.FOCUS_RECT_BORDER_THICKNESS;
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Settings.FOCUS_RECT_COLOR;
 import static com.biso.cordova.plugins.mlkit.barcode.scanner.Utils.calculateRectF;
-import static com.biso.cordova.plugins.mlkit.barcode.scanner.Utils.getAspectRatioFromString;
 
 import android.content.Context;
 import android.graphics.Canvas;
@@ -22,24 +9,20 @@ import android.graphics.Path;
 import android.graphics.PixelFormat;
 import android.graphics.PorterDuff;
 import android.graphics.RectF;
-import android.os.Bundle;
 import android.view.SurfaceHolder;
 import android.view.SurfaceHolder.Callback;
 import android.view.SurfaceView;
-import com.biso.cordova.plugins.mlkit.barcode.scanner.BarcodeAnalyzer.DetectedBarcode;
 import java.util.List;
 
 public class CameraOverlay extends SurfaceView implements Callback {
 
-  private final Bundle settings;
-  private final float aspectRatio;
+  private final ScannerSettings settings;
   private RectF scanArea;
   private RectF surfaceArea;
 
-  public CameraOverlay(Context context, Bundle settings) {
+  public CameraOverlay(Context context, ScannerSettings settings) {
     super(context);
     this.settings = settings;
-    aspectRatio = getAspectRatioFromString(settings.getString(DETECTOR_ASPECT_RATIO));
     setZOrderOnTop(true);
     SurfaceHolder holder = getHolder();
     holder.setFormat(PixelFormat.TRANSPARENT);
@@ -56,7 +39,7 @@ public class CameraOverlay extends SurfaceView implements Callback {
     surfaceArea = new RectF(surfaceHolder.getSurfaceFrame());
     scanArea = calculateRectF(surfaceHolder.getSurfaceFrame().height(),
         surfaceHolder.getSurfaceFrame().width(),
-        settings.getDouble(DETECTOR_SIZE), aspectRatio);
+        settings.getDetectorSize(), settings.getAspectRatioF());
 
     Canvas canvas = surfaceHolder.lockCanvas();
     canvas.drawColor(0, PorterDuff.Mode.CLEAR);
@@ -80,20 +63,20 @@ public class CameraOverlay extends SurfaceView implements Callback {
   }
 
   private void drawScanArea(Canvas canvas) {
-    if (settings.getBoolean(DRAW_FOCUS_LINE)) {
-      drawFocusLine(canvas, settings.getString(FOCUS_LINE_COLOR),
-          settings.getInt(FOCUS_LINE_THICKNESS));
+    if (settings.isDrawFocusLine()) {
+      drawFocusLine(canvas, settings.getFocusLineColor(),
+          settings.getFocusLineThickness());
     }
 
-    if (settings.getBoolean(DRAW_FOCUS_RECT)) {
-      drawScanAreaOutline(canvas, settings.getString(FOCUS_RECT_COLOR),
-          settings.getInt(FOCUS_RECT_BORDER_THICKNESS),
-          settings.getInt(FOCUS_RECT_BORDER_RADIUS));
+    if (settings.isDrawFocusRect()) {
+      drawScanAreaOutline(canvas, settings.getFocusRectColor(),
+          settings.getFocusRectBorderThickness(),
+          settings.getFocusRectBorderRadius());
     }
 
-    if (settings.getBoolean(DRAW_FOCUS_BACKGROUND)) {
-      drawFocusBackground(canvas, settings.getString(FOCUS_BACKGROUND_COLOR),
-          settings.getInt(FOCUS_RECT_BORDER_RADIUS));
+    if (settings.isDrawFocusBackground()) {
+      drawFocusBackground(canvas, settings.getFocusBackgroundColor(),
+          settings.getFocusRectBorderRadius());
     }
   }
 
