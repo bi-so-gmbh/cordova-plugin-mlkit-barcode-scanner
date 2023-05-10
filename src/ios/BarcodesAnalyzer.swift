@@ -44,6 +44,7 @@ class BarcodeAnalyzer {
                 height: barcode.frame.size.height / height
             )
             let convertedRect = cameraOverlay.previewLayer.layerRectConverted(fromMetadataOutputRect: normalizedRect)
+
             detectedBarcodes.append(DetectedBarcode(barcode: barcode, bounds: convertedRect, centerX: cameraOverlay.previewLayer.bounds.midX, centerY: cameraOverlay.previewLayer.bounds.midY))
         }
 
@@ -54,7 +55,7 @@ class BarcodeAnalyzer {
         if (areBarcodesStable(barcodes: detectedBarcodes) && stableCounter >= settings.stableThreshold) {
             var barcodesInScanArea: [DetectedBarcode] = []
             for barcode in detectedBarcodes {
-                if(barcode.isInScanArea(scanArea: cameraOverlay.scanArea)) {
+                if(barcode.isInScanArea(scanArea: cameraOverlay.scanArea, ignoreRotated: settings.ignoreRotatedBarcodes)) {
                     barcodesInScanArea.append(barcode)
                 }
             }

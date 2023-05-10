@@ -29,6 +29,7 @@ class DetectedBarcode: Hashable, Equatable, CustomDebugStringConvertible {
     public private(set) var format: Int
     public private(set) var barcodeType: Int
     public private(set) var distanceToCenter: CGFloat
+    public private(set) var isPortrait: Bool
 
     init(barcode: Barcode, bounds: CGRect, centerX: CGFloat, centerY: CGFloat) {
         format = barcode.format.rawValue
@@ -39,12 +40,23 @@ class DetectedBarcode: Hashable, Equatable, CustomDebugStringConvertible {
         } else {
             value = String(data: barcode.rawData!, encoding: .ascii)!;
         }
-
+        self.isPortrait = bounds.height > bounds.width
         distanceToCenter = hypot((centerX - bounds.midX), (centerY - bounds.midY));
     }
 
-    public func isInScanArea(scanArea: CGRect) -> Bool{
-        return scanArea.contains(CGPoint(x: bounds.midX, y: bounds.midY))
+    public func isInScanArea(scanArea: CGRect, ignoreRotated: Bool) -> Bool {
+        if (ignoreRotated && isPortrait) {
+            return false
+        }
+
+        return scanArea.contains(getCenterLine(forceScreenOrientation: ignoreRotated))
+    }
+
+    public func getCenterLine(forceScreenOrientation: Bool = false) -> CGRect {
+        if (!forceScreenOrientation && isPortrait) {
+            return CGRect(x: bounds.midX, y: bounds.minY, width: 1, height: bounds.height)
+        }
+        return CGRect(x: bounds.minX, y: bounds.midY, width: bounds.width, height: 1)
     }
 
     public func outputAsDictionary() -> [String: Any] {

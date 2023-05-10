@@ -36,6 +36,7 @@ class ScannerSettings: CustomDebugStringConvertible {
     public private(set) var vibrateOnSuccess: Bool = false
     public private(set) var stableThreshold: Int = 5
     public private(set) var debugOverlay: Bool = false
+    public private(set) var ignoreRotatedBarcodes: Bool = false
 
     init(options:[String:Any])  {
         for (key, value) in options {
@@ -120,6 +121,11 @@ class ScannerSettings: CustomDebugStringConvertible {
                     debugOverlay = temp
                 }
                 break
+            case Settings.IGNORE_ROTATED_BARCODES:
+                if let temp = value as? Bool {
+                    ignoreRotatedBarcodes = temp
+                }
+                break
             default:
                 print("Unknown option: \(key)")
             }
@@ -153,4 +159,5 @@ private enum Settings {
     static let VIBRATE_ON_SUCCESS: String = "vibrateOnSuccess";
     static let STABLE_THRESHOLD: String = "stableThreshold";
     static let DEBUG_OVERLAY: String = "debugOverlay";
+    static let IGNORE_ROTATED_BARCODES: String = "ignoreRotatedBarcodes";
 }

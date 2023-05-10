@@ -36,7 +36,8 @@ const options = {
   drawFocusBackground: false,
   focusBackgroundColor: "#66FFFFFF",
   stableThreshold: 5,
-  debugOverlay: false
+  debugOverlay: false,
+  ignoreRotatedBarcodes: false
 };
 
 function onSuccess(result) {

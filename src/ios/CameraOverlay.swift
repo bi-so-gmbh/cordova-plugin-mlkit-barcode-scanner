@@ -63,9 +63,15 @@ class CameraOverlay: UIView {
             }
             for barcode in barcodes {
                 let rectangleView = UIView(frame: barcode.bounds)
-                rectangleView.layer.borderColor = UIColor.green.cgColor
+                rectangleView.layer.borderColor = UIColor.blue.cgColor
                 rectangleView.layer.borderWidth = 2
                 addSubview(rectangleView)
+
+                var lineView = UIView(frame: barcode.getCenterLine())
+
+                lineView.layer.borderColor = UIColor.red.cgColor
+                lineView.layer.borderWidth = 2
+                addSubview(lineView)
             }
         }
     }
