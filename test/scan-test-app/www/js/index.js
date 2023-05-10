@@ -35,15 +35,18 @@ const options = {
   focusLineThickness: 2,
   drawFocusBackground: false,
   focusBackgroundColor: "#66FFFFFF",
-  rotateCamera: false,
   stableThreshold: 5,
   debugOverlay: false
 };
 
 function onSuccess(result) {
-  const node = document.createElement('div');
-  node.textContent = `${result.text} (${result.format}/${result.type})`;
-  document.getElementById('output').prepend(node);
+  const scan = document.createElement('div');
+    for (var barcode of result) {
+        const node = document.createElement('div');
+        node.textContent = `${barcode.value} (${barcode.format}/${barcode.type} - ${barcode.distanceToCenter})`;
+        scan.appendChild(node)
+    }
+  document.getElementById('output').prepend(scan);
 }
 
 function onFail(result) {
@@ -66,7 +69,7 @@ function scan() {
       }
     }
   }
-  
+
   cordova.plugins.mlkit.barcodeScanner.scan(options, onSuccess, onFail);
 }
 

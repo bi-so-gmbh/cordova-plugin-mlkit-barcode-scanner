@@ -5,6 +5,7 @@ import {
   IError,
   IOptions,
   IResult,
+  IPrettyResult
 } from './Interface';
 import {defaultOptions} from './Options';
 import {keyByValue} from './util/Object';
@@ -17,6 +18,15 @@ export class MLKitBarcodeScanner {
   private getBarcodeType(type: number): string {
     return keyByValue(barcodeType, type);
   }
+
+  private prettyPrintBarcode(barcode: IResult): IPrettyResult {
+        return  {
+            "value": barcode.value,
+            "type" : this.getBarcodeType(barcode.type),
+            "format": this.getBarcodeFormat(barcode.format),
+            "distanceToCenter": Math.round(barcode.distanceToCenter * 100) / 100
+        }
+    }
 
   private getBarcodeFormatFlags(barcodeFormats?: IBarcodeFormats): number {
     let barcodeFormatFlag = 0;
@@ -38,7 +48,7 @@ export class MLKitBarcodeScanner {
 
   scan(
       userOptions: IOptions,
-      success: (result: IResult) => unknown,
+      success: (result: IPrettyResult[]) => unknown,
       failure: (error: IError) => unknown,
   ): void {
     const barcodeFormats =
@@ -54,33 +64,26 @@ export class MLKitBarcodeScanner {
 
   private sendScanRequest(
       config: IConfig,
-      successCallback: (result: IResult) => unknown,
+      successCallback: (result: IPrettyResult[]) => unknown,
       failureCallback: (error: IError) => unknown,
   ): void {
     cordova.exec(
-        (data: [string, number, number]) => {
-          const [text, format, type] = data;
-          successCallback({
-            text,
-            format: this.getBarcodeFormat(format),
-            type: this.getBarcodeType(type),
-          });
+        (data: [IResult]) => {
+          successCallback(data.map((b) => this.prettyPrintBarcode(b)));
         },
-        (err: (string | null)[]) => {
-          switch (err[0]) {
-            case 'USER_CANCELLED':
+        (err: (string | null)) => {
+          switch (err) {
             case 'NO_CAMERA_PERMISSION':
+            case 'NO_CAMERA':
               failureCallback({
                 cancelled: true,
-                message: err[0]
+                message: err
               });
               break;
-            case null:
-            case 'SCANNER_OPEN':
             default:
               failureCallback({
                 cancelled: false,
-                message: err[0],
+                message: err
               });
               break;
           }

@@ -11,21 +11,24 @@ class ScannerSettings: CustomDebugStringConvertible {
         return des + "\n}"
     }
 
+    // on android lines are much thinner, this evens out the look and feel
+    private static let LINE_THICKNESS_ADJUSTMENT = -3
+    // same with corner radius, way less pronounced on android
+    private static var CORNER_RADIUS_ADJUSTMENT = -5
 
     public private(set) var barcodeFormats: Int = 1234
     public private(set) var aspectRatio: String = "1:1"
     public private(set) var aspectRatioF: Float
     public private(set) var detectorSize: Double = 0.5
-    public private(set) var rotateCamera: Bool = false
     public private(set) var drawFocusRect: Bool = true
     public private(set) var focusRectColor: String = "#FFFFFF"
     public private(set) var focusRectUIColor: UIColor
     public private(set) var focusRectBorderRadius: Int = 100
-    public private(set) var focusRectBorderThickness: Int = 5
+    public private(set) var focusRectBorderThickness: Int = 2
     public private(set) var drawFocusLine: Bool = true
     public private(set) var focusLineColor: String = "#FFFFFF"
     public private(set) var focusLineUIColor: UIColor
-    public private(set) var focusLineThickness: Int = 5
+    public private(set) var focusLineThickness: Int = 1
     public private(set) var drawFocusBackground: Bool = true
     public private(set) var focusBackgroundColor: String = "#CCFFFFFF"
     public private(set) var focusBackgroundUIColor: UIColor
@@ -52,11 +55,6 @@ class ScannerSettings: CustomDebugStringConvertible {
                     detectorSize = temp
                 }
                 break
-            case Settings.ROTATE_CAMERA:
-                if let temp = value as? Bool {
-                    rotateCamera = temp
-                }
-                break
             case Settings.DRAW_FOCUS_RECT:
                 if let temp = value as? Bool {
                     drawFocusRect = temp
@@ -69,12 +67,12 @@ class ScannerSettings: CustomDebugStringConvertible {
                 break
             case Settings.FOCUS_RECT_BORDER_RADIUS:
                 if let temp = Utils.getInt(input: value) {
-                    focusRectBorderRadius = temp
+                    focusRectBorderRadius = max(1, temp + Self.CORNER_RADIUS_ADJUSTMENT)
                 }
                 break
             case Settings.FOCUS_RECT_BORDER_THICKNESS:
                 if let temp = Utils.getInt(input: value) {
-                    focusRectBorderThickness = temp
+                    focusRectBorderThickness = max(1, temp + Self.LINE_THICKNESS_ADJUSTMENT)
                 }
                 break
             case Settings.DRAW_FOCUS_LINE:
@@ -89,7 +87,7 @@ class ScannerSettings: CustomDebugStringConvertible {
                 break
             case Settings.FOCUS_LINE_THICKNESS:
                 if let temp = Utils.getInt(input: value) {
-                    focusLineThickness = temp
+                    focusLineThickness = max(1, temp + Self.LINE_THICKNESS_ADJUSTMENT)
                 }
                 break
             case Settings.DRAW_FOCUS_BACKGROUND:
@@ -142,7 +140,6 @@ private enum Settings {
     static let BARCODE_FORMATS: String = "barcodeFormats";
     static let DETECTOR_ASPECT_RATIO: String = "detectorAspectRatio";
     static let DETECTOR_SIZE: String = "detectorSize";
-    static let ROTATE_CAMERA: String = "rotateCamera";
     static let DRAW_FOCUS_RECT: String = "drawFocusRect";
     static let FOCUS_RECT_COLOR: String = "focusRectColor";
     static let FOCUS_RECT_BORDER_RADIUS: String = "focusRectBorderRadius";

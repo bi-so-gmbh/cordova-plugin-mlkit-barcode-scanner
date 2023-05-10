@@ -56,14 +56,11 @@ const defaultOptions = Object.freeze({
     focusRectColor: "#FFFFFF",
     focusRectBorderRadius: 100,
     focusRectBorderThickness: 5,
-    scanAreaAdjustmentX: 0,
-    scanAreaAdjustmentY: 0,
     drawFocusLine: false,
     focusLineColor: "#ff2d37",
     focusLineThickness: 2,
     drawFocusBackground: false,
     focusBackgroundColor: "#66FFFFFF",
-    rotateCamera: false,
     stableThreshold: 5,
     debugOverlay: false
 });
@@ -80,6 +77,14 @@ class MLKitBarcodeScanner {
     }
     getBarcodeType(type) {
         return keyByValue(barcodeType, type);
+    }
+    prettyPrintBarcode(barcode) {
+        return {
+            "value": barcode.value,
+            "type": this.getBarcodeType(barcode.type),
+            "format": this.getBarcodeFormat(barcode.format),
+            "distanceToCenter": Math.round(barcode.distanceToCenter * 100) / 100
+        };
     }
     getBarcodeFormatFlags(barcodeFormats) {
         let barcodeFormatFlag = 0;
@@ -106,27 +111,20 @@ class MLKitBarcodeScanner {
     }
     sendScanRequest(config, successCallback, failureCallback) {
         cordova.exec((data) => {
-            const [text, format, type] = data;
-            successCallback({
-                text,
-                format: this.getBarcodeFormat(format),
-                type: this.getBarcodeType(type),
-            });
+            successCallback(data.map((b) => this.prettyPrintBarcode(b)));
         }, (err) => {
-            switch (err[0]) {
-                case 'USER_CANCELLED':
+            switch (err) {
                 case 'NO_CAMERA_PERMISSION':
+                case 'NO_CAMERA':
                     failureCallback({
                         cancelled: true,
-                        message: err[0]
+                        message: err
                     });
                     break;
-                case null:
-                case 'SCANNER_OPEN':
                 default:
                     failureCallback({
                         cancelled: false,
-                        message: err[0],
+                        message: err
                     });
                     break;
             }
@@ -137,4 +135,4 @@ const barcodeScanner = new MLKitBarcodeScanner();
 module.exports = barcodeScanner;
 
 exports.MLKitBarcodeScanner = MLKitBarcodeScanner;
-//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiQmFyY29kZVNjYW5uZXIucGx1Z2luLmpzIiwic291cmNlcyI6W10sInNvdXJjZXNDb250ZW50IjpbXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6Ijs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7In0=
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiQmFyY29kZVNjYW5uZXIucGx1Z2luLmpzIiwic291cmNlcyI6W10sInNvdXJjZXNDb250ZW50IjpbXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6Ijs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7OyJ9

@@ -16,7 +16,6 @@ class BarcodeAnalyzer {
     private var stableCounter: Int = 0
 
     init(settings: ScannerSettings, barcodesListener: BarcodesListener, cameraOverlay:CameraOverlay) {
-        print("BarcodeAnalyzerInit")
         var useBarcodeFormats = settings.barcodeFormats
         if (useBarcodeFormats == 0 || useBarcodeFormats == 1234) {
             useBarcodeFormats = BarcodeFormat.code39.rawValue | BarcodeFormat.dataMatrix.rawValue;
@@ -26,7 +25,6 @@ class BarcodeAnalyzer {
         self.cameraOverlay = cameraOverlay
         self.barcodesListener = barcodesListener
         self.settings = settings
-        print("BarcodeAnalyzerInit-end")
     }
 
     func analyze(in image: VisionImage, width: CGFloat, height: CGFloat) {

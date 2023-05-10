@@ -45,7 +45,7 @@ class MLKitBarcodeScanner: CDVPlugin, CameraViewControllerDelegate {
                     try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
                     try AVAudioSession.sharedInstance().setActive(true)
 
-                      player = try AVAudioPlayer(contentsOf: URL(fileURLWithPath: path), fileTypeHint: AVFileType.caf.rawValue)
+                    player = try AVAudioPlayer(contentsOf: URL(fileURLWithPath: path), fileTypeHint: AVFileType.caf.rawValue)
 
                     if let unwrappedPlayer = player {
                         unwrappedPlayer.play()
@@ -56,8 +56,9 @@ class MLKitBarcodeScanner: CDVPlugin, CameraViewControllerDelegate {
                 }
             }
         }
+        let output: [[String: Any]] = result.map { $0.outputAsDictionary() }
         let pluginResult = CDVPluginResult(
-            status: CDVCommandStatus_OK, messageAs: [result.first!.value, result.first!.format, result.first!.barcodeType]
+            status: CDVCommandStatus_OK, messageAs: output
         )
         self.commandDelegate!.send(
             pluginResult,
@@ -66,9 +67,9 @@ class MLKitBarcodeScanner: CDVPlugin, CameraViewControllerDelegate {
     }
 
     func onError(_ error: String) {
-        self.viewController.dismiss(animated: false)
+        self.viewController.dismiss(animated: true)
         let pluginResult = CDVPluginResult(
-            status: CDVCommandStatus_ERROR, messageAs: [error]
+            status: CDVCommandStatus_ERROR, messageAs: error
         )
         self.commandDelegate!.send(
             pluginResult,

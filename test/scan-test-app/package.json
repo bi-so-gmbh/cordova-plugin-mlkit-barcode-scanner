@@ -1,5 +1,5 @@
 {
-  "name": "com.mobisys.scanner.test",
+  "name": "com.biso.scanner.test",
   "displayName": "scan-test-app",
   "version": "1.0.0",
   "description": "A sample Apache Cordova application that responds to the deviceready event.",
@@ -17,8 +17,6 @@
       "cordova-plugin-mlkit-barcode-scanner": {}
     },
     "platforms": []
-  },
-  "dependencies": {
   },
   "devDependencies": {
     "cordova-plugin-mlkit-barcode-scanner": "file:../.."

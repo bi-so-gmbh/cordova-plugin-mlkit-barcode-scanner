@@ -29,7 +29,6 @@ export interface IOptions {
   focusLineThickness?: number;
   drawFocusBackground?: boolean;
   focusBackgroundColor?: string;
-  rotateCamera?: boolean;
   stableThreshold?: number;
   debugOverlay?: boolean;
 }
@@ -49,15 +48,22 @@ export interface IConfig {
   focusLineThickness?: number;
   drawFocusBackground?: boolean;
   focusBackgroundColor?: string;
-  rotateCamera?: boolean;
   stableThreshold?: number;
   debugOverlay?: boolean;
 }
 
 export interface IResult {
-  text: string;
+  value: string;
+  format: number;
+  type: number;
+  distanceToCenter: number;
+}
+
+export interface IPrettyResult {
+  value: string;
   format: string;
   type: string;
+  distanceToCenter: number;
 }
 
 export interface IError {

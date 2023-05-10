@@ -11,7 +11,6 @@ class CameraOverlay: UIView {
     public private(set) var previewLayer: AVCaptureVideoPreviewLayer!
 
     init(settings: ScannerSettings, parentView: UIView) {
-        print("CameraOverlayInit")
 
         self.scanArea = Utils.calculateCGRect(height: parentView.bounds.height, width: parentView.bounds.width, scaleFactor: settings.detectorSize, aspectRatio: settings.aspectRatioF)
         self.settings = settings
@@ -30,8 +29,6 @@ class CameraOverlay: UIView {
         self.contentMode = UIView.ContentMode.scaleAspectFill
         self.isOpaque = false
         self.backgroundColor = UIColor.clear
-
-        print("CameraOverlayInit-end")
     }
 
     required init?(coder: NSCoder) {

@@ -44,8 +44,10 @@ class DetectedBarcode: Hashable, Equatable, CustomDebugStringConvertible {
     }
 
     public func isInScanArea(scanArea: CGRect) -> Bool{
-        let contained = scanArea.contains(CGPoint(x: bounds.midX, y: bounds.midY))
-        print("in scan area: \(contained)")
-        return contained
+        return scanArea.contains(CGPoint(x: bounds.midX, y: bounds.midY))
+    }
+
+    public func outputAsDictionary() -> [String: Any] {
+        return ["value": value, "type": barcodeType, "format": format, "distanceToCenter": distanceToCenter]
     }
 }

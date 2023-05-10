@@ -24,14 +24,11 @@ export const defaultOptions: Required<IOptions> = Object.freeze({
   focusRectColor: "#FFFFFF",
   focusRectBorderRadius: 100,
   focusRectBorderThickness: 5,
-  scanAreaAdjustmentX: 0,
-  scanAreaAdjustmentY: 0,
   drawFocusLine: false,
   focusLineColor: "#ff2d37",
   focusLineThickness: 2,
   drawFocusBackground: false,
   focusBackgroundColor: "#66FFFFFF",
-  rotateCamera: false,
   stableThreshold: 5,
   debugOverlay: false
 });
