@@ -9,6 +9,8 @@ import androidx.annotation.NonNull;
 import com.google.mlkit.vision.barcode.common.Barcode;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 public class DetectedBarcode implements Parcelable, Comparable<DetectedBarcode> {
 
@@ -128,6 +130,15 @@ public class DetectedBarcode implements Parcelable, Comparable<DetectedBarcode> 
     out.writeDouble(distanceToCenter);
     out.writeTypedObject(bounds, Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
     out.writeBoolean(isPortrait);
+  }
+
+  public JSONObject getAsJson() throws JSONException {
+    JSONObject result = new JSONObject();
+      result.put("value", getValue());
+      result.put("format", getFormat());
+      result.put("type", getType());
+      result.put("distanceToCenter", getDistanceToCenter());
+    return result;
   }
 
   public static final Parcelable.Creator<DetectedBarcode> CREATOR = new Parcelable.Creator<DetectedBarcode>() {

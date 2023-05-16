@@ -113,20 +113,10 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
             ArrayList<DetectedBarcode> barcodes = data.getParcelableArrayListExtra(BARCODES);
             JSONArray resultBarcodes = new JSONArray();
             for (DetectedBarcode barcode : barcodes) {
-              JSONObject result = new JSONObject();
-              result.put("value", barcode.getValue());
-              result.put("format", barcode.getFormat());
-              result.put("type", barcode.getType());
-              result.put("distanceToCenter", barcode.getDistanceToCenter());
-
               Log.d("MLKitBarcodeScanner", "Barcode read: " + barcode);
-
-              resultBarcodes.put(result);
+              resultBarcodes.put(barcode.getAsJson());
             }
-            // for now just get the first barcode we find, they should be sorted by distance to center
-            // in the future (once IOS is done) we will return all of them
-            callbackContext.sendPluginResult(
-                new PluginResult(PluginResult.Status.OK, resultBarcodes));
+            callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK, resultBarcodes));
           } catch (JSONException e) {
             callbackContext.sendPluginResult(
                 new PluginResult(PluginResult.Status.ERROR, "JSON_EXCEPTION"));
