@@ -142,11 +142,9 @@ public class CameraOverlay extends SurfaceView implements Callback {
         canvas.drawRoundRect(outline, 0, 0, paint);
 
         paint.setColor(Color.parseColor("#FF0000"));
-        canvas.drawLine(outline.left, outline.centerY(), outline.right, outline.centerY(), paint);
+        RectF centerLine = barcode.getCenterLine();
+        canvas.drawLine(centerLine.left, centerLine.top, centerLine.right, centerLine.bottom, paint);
       }
-
-      paint.setColor(Color.GREEN);
-      canvas.drawRect(surfaceArea, paint);
 
       drawScanArea(canvas);
 

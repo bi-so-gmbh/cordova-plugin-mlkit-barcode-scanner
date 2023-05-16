@@ -81,7 +81,7 @@ public class BarcodeAnalyzer implements Analyzer {
 
       if (areBarcodesStable(detectedBarcodes) && stableCounter >= settings.getStableThreshold()) {
         ArrayList<DetectedBarcode> barcodesInScanArea = (ArrayList<DetectedBarcode>) detectedBarcodes.stream()
-            .filter(barcode -> barcode.isInScanArea(cameraOverlay.getScanArea())).sorted()
+            .filter(barcode -> barcode.isInScanArea(cameraOverlay.getScanArea(), settings.isIgnoreRotatedBarcodes())).sorted()
             .collect(Collectors.toList());
 
         if (!barcodesInScanArea.isEmpty()) {

@@ -51,15 +51,26 @@ public class DetectedBarcode implements Parcelable, Comparable<DetectedBarcode> 
     isPortrait = in.readBoolean();
   }
 
-  public boolean isInScanArea(RectF scanArea) {
-    if (isPortrait) {
+  public boolean isInScanArea(RectF scanArea, boolean ignoreRotated) {
+    if (ignoreRotated && isPortrait) {
       return false;
     }
 
-    RectF center = new RectF(bounds.left, bounds.centerY(), bounds.right, bounds.centerY());
+    RectF center = getCenterLine(ignoreRotated);
     boolean contained = scanArea.contains(center);
     Log.d(DETECTED_BARCODE, center.toShortString() + (contained ? " in " : " not in ") + scanArea.toShortString());
     return contained;
+  }
+
+  public RectF getCenterLine() {
+    return getCenterLine(false);
+  }
+
+  public RectF getCenterLine(boolean forceScreenOrientation) {
+    if (!forceScreenOrientation && isPortrait) {
+      return new RectF(bounds.centerX(), bounds.top, bounds.centerX(), bounds.bottom);
+    }
+    return new RectF(bounds.left, bounds.centerY(), bounds.right, bounds.centerY());
   }
 
   public RectF getBoundingBox() {
