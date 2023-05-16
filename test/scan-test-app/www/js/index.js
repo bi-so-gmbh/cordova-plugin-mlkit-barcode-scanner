@@ -42,8 +42,9 @@ const options = {
 
 function onSuccess(result) {
   const scan = document.createElement('div');
-    for (var barcode of result) {
+    for (const barcode of result) {
         const node = document.createElement('div');
+        node.className = 'log_item'
         node.textContent = `${barcode.value} (${barcode.format}/${barcode.type} - ${barcode.distanceToCenter})`;
         scan.appendChild(node)
     }
@@ -53,6 +54,7 @@ function onSuccess(result) {
 function onFail(result) {
   if(result.cancelled) {
     const node = document.createElement('div');
+    node.className = 'log_item'
     node.textContent = `${result.message}`;
     document.getElementById('output').prepend(node);
   }
@@ -74,9 +76,18 @@ function scan() {
   cordova.plugins.mlkit.barcodeScanner.scan(options, onSuccess, onFail);
 }
 
+function clearLog() {
+  let logItems = document.getElementsByClassName('log_item')
+  logItems = [...logItems]
+  for (const item of logItems) {
+    item.parentNode.removeChild(item)
+  }
+}
+
 function onDeviceReady() {
   console.log('Running cordova-' + cordova.platformId + '@' + cordova.version);
   document.getElementById('scan').onclick = scan;
+  document.getElementById('clearLog').onclick = clearLog;
 
   for (const key in options) {
     const element =  document.getElementById(key);
