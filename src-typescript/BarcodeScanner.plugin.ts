@@ -80,6 +80,7 @@ export class MLKitBarcodeScanner {
                 message: err
               });
               break;
+            case 'JSON_EXCEPTION':
             default:
               failureCallback({
                 cancelled: false,
