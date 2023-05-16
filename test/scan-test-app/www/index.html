@@ -8,7 +8,6 @@
         <meta name="viewport" content="initial-scale=1, width=device-width, viewport-fit=cover">
         <meta name="color-scheme" content="light dark">
         <link rel="stylesheet" href="css/index.css">
-        <link rel="stylesheet" href="css/bootstrap.min.css">
         <title>ML Kit Barcode Scanner Test</title>
     </head>
     <body>
@@ -21,37 +20,42 @@
             <div class="col-12">
               <form>
                 <h4>Scan options</h4>
-                <div class="form-check form-switch">
-                  <input class="form-check-input" type="checkbox" role="switch" id="beepOnSuccess" name="beepOnSuccess" value="true">
-                  <label class="form-check-label" for="beepOnSuccess">Beep on success</label>
-                </div>
-                <div class="form-check form-switch">
-                  <input class="form-check-input" type="checkbox" role="switch" id="vibrateOnSuccess" name="vibrateOnSuccess" value="true">
-                  <label class="form-check-label" for="vibrateOnSuccess">Vibrate on success</label>
-                </div>
-                <div class="form-check form-switch">
-                  <input class="form-check-input" type="checkbox" role="switch" id="rotateCamera" name="rotateCamera" value="true">
-                  <label class="form-check-label" for="rotateCamera">Rotate Camera</label>
-                </div>
                 <fieldset>
-                  <legend>Size:</legend>
+                  <legend>General:</legend>
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="beepOnSuccess" name="beepOnSuccess" value="true">
+                    <label class="form-check-label" for="beepOnSuccess">Beep on success</label>
+                  </div>
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="vibrateOnSuccess" name="vibrateOnSuccess" value="true">
+                    <label class="form-check-label" for="vibrateOnSuccess">Vibrate on success</label>
+                  </div>
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="debugOverlay" name="debugOverlay" value="true">
+                    <label class="form-check-label" for="debugOverlay">Debug Overlay</label>
+                  </div>
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="ignoreRotatedBarcodes" name="ignoreRotatedBarcodes" value="true">
+                    <label class="form-check-label" for="ignoreRotatedBarcodes">Ignore Rotated Barcodes</label>
+                  </div>
                   <div class="form-range">
-                    <label class="form-range-label" for="detectorSize">Size (IOS)</label>
+                    <label class="form-range-label" for="stableThreshold">StableThreshold</label>
+                    <input class="form-range-input" type="range" min="0" max="20" step="1" id="stableThreshold" name="stableThreshold">
+                    <output>5</output>
+                  </div>
+                </fieldset>
+                <fieldset>
+                  <legend>Scan Area:</legend>
+                  <div class="form-range">
+                    <label class="form-range-label" for="detectorSize">Size</label>
                     <input class="form-range-input" type="range" min="0" max="1" step="0.1" id="detectorSize" name="detectorSize">
                     <output>0.5</output>
                   </div>
-                  <div class="form-range">
-                    <label class="form-range-label" for="detectorHeight">Height (Android)</label>
-                    <input class="form-range-input" type="range" min="0" max="1" step="0.1" id="detectorHeight" name="detectorHeight">
-                    <output>0.5</output>
-                  </div>
-                  <div class="form-range">
-                    <label class="form-range-label" for="detectorWidth">Width (Android)</label>
-                    <input class="form-range-input" type="range" min="0" max="1" step="0.1" id="detectorWidth" name="detectorWidth">
-                    <output>0.5</output>
+                  <div class="form-text">
+                    <label class="form-text-label" for="detectorAspectRatio">Aspect Ratio</label>
+                    <input class="form-text-input" type="text" id="detectorAspectRatio" name="detectorAspectRatio">
                   </div>
                 </fieldset>
-                <h4>Android only options</h4>
                 <fieldset>
                   <legend>Rectangle Outline:</legend>
                   <div class="form-check form-switch">

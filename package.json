@@ -1,6 +1,6 @@
 {
   "name": "cordova-plugin-mlkit-barcode-scanner",
-  "version": "3.0.9",
+  "version": "4.0.0",
   "description": "Google MLKit Vision Barcode Scanner Plugin",
   "cordova": {
     "id": "cordova-plugin-mlkit-barcode-scanner",
@@ -26,26 +26,30 @@
     "lint": "eslint . --ext .js,.ts --cache && tsc -p tsconfig.lint.json",
     "test": "echo \"Error: no test specified\" && exit 1",
     "transpile": "rollup --config --silent",
-    "prepublishOnly": "npm run build"
+    "cleanRunAndroid": "cd test/scan-test-app && cordova platform remove android && rm -rf platforms/android && cordova platform add android@11 --no-save && cordova run android"
   },
   "files": [
     "/src/",
     "/www/**/*.{js,js.map,d.ts}",
     "/plugin.xml"
   ],
+  "eslintConfig": {
+    "parser": "@typescript-eslint/parser"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/bi-so-gmbh/cordova-plugin-mlkit-barcode-scanner.git"
   },
   "homepage": "https://github.com/bi-so-gmbh/cordova-plugin-mlkit-barcode-scanner#readme",
   "devDependencies": {
-    "@rollup/plugin-commonjs": "20.0.0",
-    "@rollup/plugin-node-resolve": "13.0.4",
-    "@types/cordova": "0.0.34",
-    "@types/node": "16.7.1",
-    "eslint": "7.32.0",
-    "rollup": "2.56.3",
-    "rollup-plugin-typescript2": "0.30.0",
-    "tslib": "2.3.1"
+    "@rollup/plugin-commonjs": "^24.1.0",
+    "@rollup/plugin-node-resolve": "^15.0.2",
+    "@types/cordova": "^11.0.0",
+    "@types/node": "^18.15.11",
+    "@typescript-eslint/parser": "^5.58.0",
+    "eslint": "^8.38.0",
+    "rollup": "^2.77.2",
+    "rollup-plugin-typescript2": "^0.34.1",
+    "tslib": "^2.3.1"
   }
 }

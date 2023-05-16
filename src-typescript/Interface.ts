@@ -19,21 +19,51 @@ export interface IOptions {
   beepOnSuccess?: boolean;
   vibrateOnSuccess?: boolean;
   detectorSize?: number;
-  rotateCamera?: boolean;
+  detectorAspectRatio?: string;
+  drawFocusRect?: boolean;
+  focusRectColor?: string;
+  focusRectBorderRadius?: number;
+  focusRectBorderThickness?: number;
+  drawFocusLine?: boolean;
+  focusLineColor?: string;
+  focusLineThickness?: number;
+  drawFocusBackground?: boolean;
+  focusBackgroundColor?: string;
+  stableThreshold?: number;
+  debugOverlay?: boolean;
 }
 
 export interface IConfig {
   barcodeFormats: number;
-  beepOnSuccess: boolean;
-  vibrateOnSuccess: boolean;
-  detectorSize: number;
-  rotateCamera: boolean;
+  beepOnSuccess?: boolean;
+  vibrateOnSuccess?: boolean;
+  detectorSize?: number;
+  detectorAspectRatio?: string;
+  drawFocusRect?: boolean;
+  focusRectColor?: string;
+  focusRectBorderRadius?: number;
+  focusRectBorderThickness?: number;
+  drawFocusLine?: boolean;
+  focusLineColor?: string;
+  focusLineThickness?: number;
+  drawFocusBackground?: boolean;
+  focusBackgroundColor?: string;
+  stableThreshold?: number;
+  debugOverlay?: boolean;
 }
 
 export interface IResult {
-  text: string;
+  value: string;
+  format: number;
+  type: number;
+  distanceToCenter: number;
+}
+
+export interface IPrettyResult {
+  value: string;
   format: string;
   type: string;
+  distanceToCenter: number;
 }
 
 export interface IError {

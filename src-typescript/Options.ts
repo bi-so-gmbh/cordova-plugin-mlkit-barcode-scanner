@@ -19,8 +19,7 @@ export const defaultOptions: Required<IOptions> = Object.freeze({
   beepOnSuccess: false,
   vibrateOnSuccess: false,
   detectorSize: 0.6,
-  detectorWidth: 0.6,
-  detectorHeight: 0.6,
+  detectorAspectRatio: "1:1",
   drawFocusRect: true,
   focusRectColor: "#FFFFFF",
   focusRectBorderRadius: 100,
@@ -30,5 +29,7 @@ export const defaultOptions: Required<IOptions> = Object.freeze({
   focusLineThickness: 2,
   drawFocusBackground: false,
   focusBackgroundColor: "#66FFFFFF",
-  rotateCamera: false,
+  stableThreshold: 5,
+  debugOverlay: false,
+  ignoreRotatedBarcodes: false
 });

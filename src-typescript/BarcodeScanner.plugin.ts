@@ -1,13 +1,14 @@
-import { barcodeFormat, barcodeType } from './Detector';
+import {barcodeFormat, barcodeType} from './Detector';
 import {
   IBarcodeFormats,
   IConfig,
   IError,
   IOptions,
   IResult,
+  IPrettyResult
 } from './Interface';
-import { defaultOptions } from './Options';
-import { keyByValue } from './util/Object';
+import {defaultOptions} from './Options';
+import {keyByValue} from './util/Object';
 
 export class MLKitBarcodeScanner {
   private getBarcodeFormat(format: number): string {
@@ -18,6 +19,15 @@ export class MLKitBarcodeScanner {
     return keyByValue(barcodeType, type);
   }
 
+  private prettyPrintBarcode(barcode: IResult): IPrettyResult {
+        return  {
+            "value": barcode.value,
+            "type" : this.getBarcodeType(barcode.type),
+            "format": this.getBarcodeFormat(barcode.format),
+            "distanceToCenter": Math.round(barcode.distanceToCenter * 100) / 100
+        }
+    }
+
   private getBarcodeFormatFlags(barcodeFormats?: IBarcodeFormats): number {
     let barcodeFormatFlag = 0;
     let key: keyof typeof barcodeFormat;
@@ -26,9 +36,9 @@ export class MLKitBarcodeScanner {
     // eslint-disable-next-line no-restricted-syntax
     for (key in formats) {
       if (
-        barcodeFormat.hasOwnProperty(key) &&
-        formats.hasOwnProperty(key) &&
-        formats[key]
+          barcodeFormat.hasOwnProperty(key) &&
+          formats.hasOwnProperty(key) &&
+          formats[key]
       ) {
         barcodeFormatFlag += barcodeFormat[key];
       }
@@ -37,12 +47,12 @@ export class MLKitBarcodeScanner {
   }
 
   scan(
-    userOptions: IOptions,
-    success: (result: IResult) => unknown,
-    failure: (error: IError) => unknown,
+      userOptions: IOptions,
+      success: (result: IPrettyResult[]) => unknown,
+      failure: (error: IError) => unknown,
   ): void {
     const barcodeFormats =
-      userOptions?.barcodeFormats || defaultOptions.barcodeFormats;
+        userOptions?.barcodeFormats || defaultOptions.barcodeFormats;
     const config: IConfig = {
       ...defaultOptions,
       ...userOptions,
@@ -53,45 +63,35 @@ export class MLKitBarcodeScanner {
   }
 
   private sendScanRequest(
-    config: IConfig,
-    successCallback: (result: IResult) => unknown,
-    failureCallback: (error: IError) => unknown,
+      config: IConfig,
+      successCallback: (result: IPrettyResult[]) => unknown,
+      failureCallback: (error: IError) => unknown,
   ): void {
     cordova.exec(
-      (data: [string, number, number]) => {
-        const [text, format, type] = data;
-        successCallback({
-          text,
-          format: this.getBarcodeFormat(format),
-          type: this.getBarcodeType(type),
-        });
-      },
-      (err: (string | null)[]) => {
-        switch (err[0]) {
-          case null:
-          case 'USER_CANCELLED':
-            failureCallback({
-              cancelled: true,
-              message: 'The scan was cancelled.',
-            });
-            break;
-          case 'SCANNER_OPEN':
-            failureCallback({
-              cancelled: false,
-              message: 'Scanner already open.',
-            });
-            break;
-          default:
-            failureCallback({
-              cancelled: false,
-              message: err[0] || 'Unknown Error',
-            });
-            break;
-        }
-      },
-      'cordova-plugin-mlkit-barcode-scanner',
-      'startScan',
-      [config],
+        (data: [IResult]) => {
+          successCallback(data.map((b) => this.prettyPrintBarcode(b)));
+        },
+        (err: (string | null)) => {
+          switch (err) {
+            case 'NO_CAMERA_PERMISSION':
+            case 'NO_CAMERA':
+              failureCallback({
+                cancelled: true,
+                message: err
+              });
+              break;
+            case 'JSON_EXCEPTION':
+            default:
+              failureCallback({
+                cancelled: false,
+                message: err
+              });
+              break;
+          }
+        },
+        'cordova-plugin-mlkit-barcode-scanner',
+        'startScan',
+        [config],
     );
   }
 }
