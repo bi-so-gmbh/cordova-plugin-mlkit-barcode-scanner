@@ -1,5 +1,7 @@
 # :camera: cordova-plugin-mlkit-barcode-scanner
 
+This is a fork of [MobisysGmbH / cordova-plugin-mlkit-barcode-scanner](https://github.com/MobisysGmbH/cordova-plugin-mlkit-barcode-scanner)
+
 ## Purpose of this Project
 
 The purpose of this project is to provide a barcode scanner utilizing the Google ML Kit Vision library for the Cordova framework on iOS and Android.
