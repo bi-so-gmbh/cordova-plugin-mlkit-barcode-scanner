@@ -46,8 +46,8 @@
     <source-file src="src/ios/MLKitBarcodeScanner.swift" />
     <source-file src="src/ios/ScannerSettings.swift" />
     <source-file src="src/ios/Utils.swift" />
-    <resource-file src="src/ios/assets/beep.caf" />
-    <resource-file src="src/ios/assets/flashlight.png" />
+    <resource-file src="src/resources/beep.mp3" />
+    <resource-file src="src/resources/flashlight.png" />
   </platform>
   <platform name="android">
     <config-file parent="/*"
@@ -80,11 +80,11 @@
     <source-file src="src/android/com/biso/cordova/plugins/mlkit/barcode/scanner"
       target-dir="java/com/biso/cordova/plugins/mlkit/barcode/" />
 
-    <resource-file src="src/android/res/assets/beep.ogg"
-      target="assets/beep.ogg" />
+    <resource-file src="src/resources/beep.mp3"
+      target="assets/beep.mp3" />
     <resource-file src="src/android/res/layout/capture_activity.xml"
       target="res/layout/capture_activity.xml" />
-    <resource-file src="src/android/res/drawable/flashlight.png"
+    <resource-file src="src/resources/flashlight.png"
       target="res/drawable/flashlight.png" />
     <resource-file src="src/android/res/drawable/torch_active.xml"
       target="res/drawable/torch_active.xml" />

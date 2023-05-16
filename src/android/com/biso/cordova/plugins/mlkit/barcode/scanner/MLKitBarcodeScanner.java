@@ -5,6 +5,7 @@ import static com.biso.cordova.plugins.mlkit.barcode.scanner.BarcodeAnalyzer.BAR
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.AssetFileDescriptor;
+import android.media.AudioAttributes;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.VibrationEffect;
@@ -43,7 +44,13 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
     vibrator = vibratorManager.getDefaultVibrator();
     mediaPlayer = new MediaPlayer();
 
-    try (AssetFileDescriptor descriptor = context.getAssets().openFd("beep.ogg")) {
+    try (AssetFileDescriptor descriptor = context.getAssets().openFd("beep.mp3")) {
+      mediaPlayer.setAudioAttributes(
+          new AudioAttributes.Builder()
+              .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+              .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+              .build()
+      );
       mediaPlayer.setDataSource(descriptor.getFileDescriptor(), descriptor.getStartOffset(),
           descriptor.getLength());
       mediaPlayer.prepare();
