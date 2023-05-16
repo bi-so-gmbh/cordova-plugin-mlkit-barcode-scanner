@@ -26,8 +26,7 @@
     "lint": "eslint . --ext .js,.ts --cache && tsc -p tsconfig.lint.json",
     "test": "echo \"Error: no test specified\" && exit 1",
     "transpile": "rollup --config --silent",
-    "prepublishOnly": "npm run build",
-    "cleanRun": "cd test/scan-test-app && cordova platform remove android && rm -rf platforms/android && cordova platform add android@11 --no-save && cordova run android"
+    "cleanRunAndroid": "cd test/scan-test-app && cordova platform remove android && rm -rf platforms/android && cordova platform add android@11 --no-save && cordova run android"
   },
   "files": [
     "/src/",
